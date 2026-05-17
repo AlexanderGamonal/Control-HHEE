@@ -223,7 +223,7 @@
   </div>
 
   <!-- REGISTRAR DÍA -->
-  <div class="section">
+  <div class="section" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Registrar día<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="form-grid">
@@ -291,7 +291,7 @@
   </div>
 
   <!-- RESUMEN -->
-  <div class="section collapsed">
+  <div class="section collapsed" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Resumen<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="filter-row">
@@ -322,7 +322,7 @@
   </div>
 
   <!-- HISTORIAL -->
-  <div class="section collapsed">
+  <div class="section collapsed" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Historial<span class="chevron">▲</span></div>
     <div class="section-body">
       <div id="tabla-alert"></div>
@@ -421,7 +421,12 @@ function ocultarSetup() {
 }
 
 function toggleSection(header) {
-  header.closest('.section').classList.toggle('collapsed');
+  const section = header.closest('.section');
+  const isCollapsed = section.classList.contains('collapsed');
+  // Cerrar todas las secciones del acordeón principal
+  document.querySelectorAll('.section[data-accordion="main"]').forEach(s => s.classList.add('collapsed'));
+  // Si estaba cerrada, abrirla; si estaba abierta, queda cerrada
+  if (isCollapsed) section.classList.remove('collapsed');
 }
 
 function formatTimeInput(e) {
@@ -699,11 +704,13 @@ async function exportarSheets() {
   const cfg  = getConfig();
   const data = getRegistros();
   if (!cfg.url)     { showAlert('export-alert','Configura el Script URL en ⚙️ Ajustes','error'); return; }
+  if (!cfg.url.includes('script.google.com')) { showAlert('export-alert','La URL no parece ser de Google Apps Script','error'); return; }
   if (!data.length) { showAlert('export-alert','Sin datos para exportar','error'); return; }
   showAlert('export-alert','Enviando a Google Sheets...','success');
   try {
-    const res  = await fetch(cfg.url, {
+    await fetch(cfg.url, {
       method: 'POST',
+      mode: 'no-cors',
       body: JSON.stringify({
         rows: data.map(r => ({
           fecha: r.fecha, entrada: r.entrada, salida: r.salida,
@@ -713,11 +720,9 @@ async function exportarSheets() {
         }))
       }),
     });
-    const json = await res.json();
-    if (json.ok) showAlert('export-alert','✓ Sincronizado con Google Sheets','success');
-    else showAlert('export-alert','Error: '+(json.error||'desconocido'),'error');
+    showAlert('export-alert','✓ Enviado a Google Sheets','success');
   } catch(e) {
-    showAlert('export-alert','Error de conexión. Verifica la URL en ⚙️ Ajustes.','error');
+    showAlert('export-alert','Error de red. Verifica tu conexión a internet.','error');
   }
 }
 
