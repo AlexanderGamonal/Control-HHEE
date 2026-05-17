@@ -8,7 +8,7 @@
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#e8c547">
+<meta name="theme-color" content="#4d9de8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="HHEE">
@@ -19,7 +19,7 @@
     --surface: #141720;
     --surface2: #1c2030;
     --border: #2a2f42;
-    --accent: #e8c547;
+    --accent: #4d9de8;
     --accent2: #4de8a0;
     --accent3: #e84d6f;
     --accent4: #7eb8f7;
@@ -33,7 +33,7 @@
   body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
   body::before {
     content: ''; position: fixed; inset: 0;
-    background-image: linear-gradient(rgba(232,197,71,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(232,197,71,0.03) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(77,157,232,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(77,157,232,0.03) 1px, transparent 1px);
     background-size: 40px 40px; pointer-events: none; z-index: 0;
   }
   .app { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 32px 16px; }
@@ -68,7 +68,7 @@
 
   .btn { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 9px 18px; border: none; border-radius: 2px; cursor: pointer; transition: all 0.15s; }
   .btn-primary { background: var(--accent); color: #0d0f14; }
-  .btn-primary:hover { background: #f0d160; transform: translateY(-1px); }
+  .btn-primary:hover { background: #6db0ee; transform: translateY(-1px); }
   .btn-success { background: var(--accent2); color: #0d0f14; }
   .btn-success:hover { background: #68f0b4; transform: translateY(-1px); }
   .btn-danger { background: transparent; color: var(--accent3); border: 1px solid var(--accent3); }
@@ -93,10 +93,10 @@
   thead tr { background: var(--surface2); }
   th { padding: 9px 11px; text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); font-weight: 400; white-space: nowrap; }
   td { padding: 9px 11px; border-top: 1px solid var(--border); vertical-align: middle; }
-  tr:hover td { background: rgba(232,197,71,0.03); }
+  tr:hover td { background: rgba(77,157,232,0.03); }
 
   .tag { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 11px; font-weight: 600; }
-  .tag-hhee   { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .tag-hhee   { background: rgba(77,157,232,0.15); color: var(--accent); }
   .tag-0      { background: rgba(255,255,255,0.05); color: var(--text-muted); }
   .tag-night  { background: rgba(126,184,247,0.12); color: var(--accent4); font-size: 10px; padding: 1px 5px; margin-left: 4px; }
 
@@ -107,8 +107,8 @@
   .alert-success { background: rgba(77,232,160,0.1); border: 1px solid rgba(77,232,160,0.3); color: var(--accent2); }
   .alert-error   { background: rgba(232,77,111,0.1); border: 1px solid rgba(232,77,111,0.3); color: var(--accent3); }
 
-  .config-notice { font-size: 12px; color: var(--text-muted); line-height: 1.8; padding: 14px 16px; background: rgba(232,197,71,0.05); border: 1px solid rgba(232,197,71,0.15); border-radius: 2px; margin-top: 14px; }
-  .config-notice code { background: rgba(232,197,71,0.1); color: var(--accent); padding: 1px 6px; border-radius: 2px; font-family: var(--mono); font-size: 11px; }
+  .config-notice { font-size: 12px; color: var(--text-muted); line-height: 1.8; padding: 14px 16px; background: rgba(77,157,232,0.05); border: 1px solid rgba(77,157,232,0.15); border-radius: 2px; margin-top: 14px; }
+  .config-notice code { background: rgba(77,157,232,0.1); color: var(--accent); padding: 1px 6px; border-radius: 2px; font-family: var(--mono); font-size: 11px; }
   .config-notice a { color: var(--accent); }
 
   .regla-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
@@ -363,7 +363,7 @@ const APPS_SCRIPT = `function doPost(e) {
     var sheet = ss.getSheetByName("HHEE") || ss.insertSheet("HHEE");
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(["Fecha","Entrada","Salida","Turno","Fin Jornada","HHEE","Monto S/","Motivo","Actualizado"]);
-      sheet.getRange(1,1,1,9).setFontWeight("bold").setBackground("#1c2030").setFontColor("#e8c547");
+      sheet.getRange(1,1,1,9).setFontWeight("bold").setBackground("#1c2030").setFontColor("#4d9de8");
     }
     var payload = JSON.parse(e.postData.contents);
     if (sheet.getLastRow() > 1) sheet.deleteRows(2, sheet.getLastRow() - 1);
@@ -548,7 +548,7 @@ function autoPreview() {
   // Badge turno
   const badge = document.getElementById('prev-turno-badge');
   badge.textContent = r.turnoLabel;
-  badge.style.background = r.esTurnoNoche ? 'rgba(126,184,247,0.12)' : 'rgba(232,197,71,0.12)';
+  badge.style.background = r.esTurnoNoche ? 'rgba(126,184,247,0.12)' : 'rgba(77,157,232,0.12)';
   badge.style.color = r.esTurnoNoche ? 'var(--accent4)' : 'var(--accent)';
 
   document.getElementById('prev-turno').textContent      = r.esTurnoNoche ? 'Noche (desde 19:00)' : 'Día (antes de 19:00)';
@@ -793,7 +793,7 @@ window.addEventListener('appinstalled', () => {
 </script>
 
 <!-- Banner instalar PWA -->
-<div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1c2030; border-top:2px solid #e8c547; padding:14px 20px; z-index:999; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+<div id="install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1c2030; border-top:2px solid #4d9de8; padding:14px 20px; z-index:999; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
   <div style="display:flex; align-items:center; gap:12px;">
     <img src="icons/icon-192.png" style="width:40px; height:40px; border-radius:8px;">
     <div>
@@ -802,7 +802,7 @@ window.addEventListener('appinstalled', () => {
     </div>
   </div>
   <div style="display:flex; gap:8px;">
-    <button onclick="instalarPWA()" style="background:#e8c547; color:#0d0f14; border:none; padding:8px 18px; border-radius:2px; font-family:'Syne',sans-serif; font-weight:700; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;">Instalar</button>
+    <button onclick="instalarPWA()" style="background:#4d9de8; color:#0d0f14; border:none; padding:8px 18px; border-radius:2px; font-family:'Syne',sans-serif; font-weight:700; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer;">Instalar</button>
     <button onclick="cerrarBanner()" style="background:transparent; color:#6b7194; border:1px solid #2a2f42; padding:8px 12px; border-radius:2px; font-size:12px; cursor:pointer;">✕</button>
   </div>
 </div>
