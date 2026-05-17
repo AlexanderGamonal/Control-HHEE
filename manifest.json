@@ -1,7 +1,7 @@
 {
   "name": "Control HHEE Perú",
   "short_name": "HHEE",
-  "description": "Control de horas extras — Régimen General Perú",
+  "description": "Control de horas extras",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d0f14",

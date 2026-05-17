@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control HHEE — Régimen General Perú</title>
+<title>Control HHEE</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <!-- PWA -->
@@ -51,7 +51,11 @@
   .section { margin-bottom: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; animation: fadeUp 0.35s ease both; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
-  .section-header { padding: 12px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .section-header { padding: 12px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; user-select: none; }
+  .section-header.no-toggle { cursor: default; }
+  .section-header .chevron { margin-left: auto; font-size: 10px; color: var(--text-muted); transition: transform 0.2s; line-height: 1; }
+  .section.collapsed .section-header .chevron { transform: rotate(180deg); }
+  .section.collapsed .section-body { display: none; }
   .section-header .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
   .section-body { padding: 18px; }
 
@@ -145,7 +149,6 @@
 
   <header>
     <div class="header-left">
-      <div class="header-tag">Régimen General · DS 007-2002-TR</div>
       <h1>Control de <span>HHEE</span></h1>
       <div class="header-meta">
         <span>8h efectivas / 48h semanales</span>
@@ -221,7 +224,7 @@
 
   <!-- REGISTRAR DÍA -->
   <div class="section">
-    <div class="section-header"><div class="dot"></div> Registrar día</div>
+    <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Registrar día<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="form-grid">
         <div class="field">
@@ -229,12 +232,12 @@
           <input type="date" id="reg-fecha">
         </div>
         <div class="field">
-          <label>Hora entrada (24h)</label>
-          <input type="time" id="reg-entrada" oninput="autoPreview()">
+          <label>Hora entrada (HH:MM)</label>
+          <input type="text" id="reg-entrada" inputmode="numeric" placeholder="08:00" maxlength="5" oninput="formatTimeInput(event)" onblur="validateTimeInput(event)">
         </div>
         <div class="field">
-          <label>Hora salida (24h)</label>
-          <input type="time" id="reg-salida" oninput="autoPreview()">
+          <label>Hora salida (HH:MM)</label>
+          <input type="text" id="reg-salida" inputmode="numeric" placeholder="17:45" maxlength="5" oninput="formatTimeInput(event)" onblur="validateTimeInput(event)">
         </div>
         <div class="field">
           <label>Motivo HHEE (opcional)</label>
@@ -288,8 +291,8 @@
   </div>
 
   <!-- RESUMEN -->
-  <div class="section">
-    <div class="section-header"><div class="dot"></div> Resumen</div>
+  <div class="section collapsed">
+    <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Resumen<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="filter-row">
         <label>Mes:</label>
@@ -319,8 +322,8 @@
   </div>
 
   <!-- HISTORIAL -->
-  <div class="section">
-    <div class="section-header"><div class="dot"></div> Historial</div>
+  <div class="section collapsed">
+    <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Historial<span class="chevron">▲</span></div>
     <div class="section-body">
       <div id="tabla-alert"></div>
       <div class="table-wrap">
@@ -415,6 +418,30 @@ function ocultarSetup() {
   document.getElementById('section-config').style.display = 'none';
   document.getElementById('section-instrucciones').style.display = 'none';
   document.getElementById('btn-config-toggle').textContent = '⚙️ Ajustes';
+}
+
+function toggleSection(header) {
+  header.closest('.section').classList.toggle('collapsed');
+}
+
+function formatTimeInput(e) {
+  let v = e.target.value.replace(/\D/g, '');
+  if (v.length > 4) v = v.slice(0, 4);
+  if (v.length >= 3) v = v.slice(0, 2) + ':' + v.slice(2, 4);
+  e.target.value = v;
+  if (v.length === 5) autoPreview();
+}
+
+function validateTimeInput(e) {
+  const parts = e.target.value.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (parts.length !== 2 || isNaN(h) || h > 23 || isNaN(m) || m > 59) {
+    e.target.setCustomValidity('Hora inválida (HH:MM, 00:00–23:59)');
+    e.target.reportValidity();
+  } else {
+    e.target.setCustomValidity('');
+  }
 }
 
 function guardarConfig() {
