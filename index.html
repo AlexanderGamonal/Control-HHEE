@@ -171,6 +171,14 @@
   html[data-fs="xlarge"] .preview-row .val { font-size: 17px; }
   html[data-fs="xlarge"] .tag { font-size: 14px; }
 
+  /* ── VALOR HORA REFERENCIAL ─────────────────────────────────── */
+  .vh-ref { background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 12px; }
+  .vh-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+  .vh-lbl { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  .vh-val { font-family: var(--sans); font-weight: 700; font-size: 13px; }
+  .vh-val.accent  { color: var(--accent); }
+  .vh-val.accent2 { color: var(--accent2); }
+
   /* ── CABECERA SEMANAL EN TABLA ──────────────────────────────── */
   .week-header td { background: var(--surface2); color: var(--text-muted); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 11px; border-top: 2px solid var(--border); }
   .week-header .week-hhee { color: var(--accent); font-weight: 600; }
@@ -209,7 +217,24 @@
       <div class="form-grid">
         <div class="field">
           <label>Remuneración mensual (S/)</label>
-          <input type="number" id="cfg-sueldo" placeholder="ej. 3500" min="0" step="0.01">
+          <input type="number" id="cfg-sueldo" placeholder="ej. 3500" min="0" step="0.01" oninput="actualizarVhRef()">
+        </div>
+        <div class="field" id="vh-ref-field" style="display:none">
+          <label>Valor hora referencial</label>
+          <div class="vh-ref">
+            <div class="vh-row">
+              <span class="vh-lbl">Hora normal</span>
+              <span class="vh-val" id="vh-normal">—</span>
+            </div>
+            <div class="vh-row">
+              <span class="vh-lbl">HHEE primeras 2h (×1.25)</span>
+              <span class="vh-val accent" id="vh-25">—</span>
+            </div>
+            <div class="vh-row">
+              <span class="vh-lbl">HHEE desde 3ra h (×1.35)</span>
+              <span class="vh-val accent2" id="vh-35">—</span>
+            </div>
+          </div>
         </div>
         <div class="field">
           <label>Google Sheets Script URL</label>
@@ -434,7 +459,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('reg-fecha').value  = hoy();
   document.getElementById('filter-mes').value = mesActual();
   const cfg = getConfig();
-  if (cfg.sueldo) document.getElementById('cfg-sueldo').value = cfg.sueldo;
+  if (cfg.sueldo) { document.getElementById('cfg-sueldo').value = cfg.sueldo; actualizarVhRef(); }
   if (cfg.url)    document.getElementById('cfg-url').value    = cfg.url;
   if (localStorage.getItem(KEY_SETUP) === '1') ocultarSetup();
   if (cfg.fontSize) setFontSize(cfg.fontSize);
@@ -501,6 +526,17 @@ function validateTimeInput(e) {
   e.target.value = v.slice(0, 2) + ':' + v.slice(2, 4);
   e.target.setCustomValidity('');
   autoPreview();
+}
+
+function actualizarVhRef() {
+  const s = parseFloat(document.getElementById('cfg-sueldo').value);
+  const field = document.getElementById('vh-ref-field');
+  if (!s || s <= 0) { field.style.display = 'none'; return; }
+  field.style.display = '';
+  const vh = valorHora(s);
+  document.getElementById('vh-normal').textContent = `S/ ${vh.toFixed(4)}`;
+  document.getElementById('vh-25').textContent     = `S/ ${(vh * 1.25).toFixed(4)}`;
+  document.getElementById('vh-35').textContent     = `S/ ${(vh * 1.35).toFixed(4)}`;
 }
 
 function setFontSize(size) {
@@ -607,8 +643,7 @@ function getMondayOfWeek(fechaStr) {
 }
 
 function calcHHEESemanales(registros) {
-  const cfg = getConfig();
-  const vh  = cfg.sueldo ? valorHora(cfg.sueldo) : 0;
+  // vh se obtiene por registro (no global), para proteger montos históricos
 
   // Agrupar por semana (lunes como clave)
   const semanas = {};
@@ -647,7 +682,9 @@ function calcHHEESemanales(registros) {
       // Split 25%/35% en el tramo semanal (120 min = 2h al 25%)
       const h1 = Math.max(0, Math.min(hheeHoy, 120 - hheeAcumPrev));
       const h2 = hheeHoy - h1;
-      const monto = vh ? (h1 / 60 * vh * 1.25) + (h2 / 60 * vh * 1.35) : 0;
+      // Usar vh guardado en el registro; fallback a sueldo actual para registros antiguos
+      const vhR = r.vh || (getConfig().sueldo ? valorHora(getConfig().sueldo) : 0);
+      const monto = vhR ? (h1 / 60 * vhR * 1.25) + (h2 / 60 * vhR * 1.35) : 0;
 
       mapa[r.fecha] = {
         hheeMin:     hheeHoy,
@@ -710,6 +747,7 @@ function registrarDia() {
     refrigerioMin:      r.refrigerioMin,
     finJornadaStr:      r.finJornadaStr,
     trabajoEfectivoMin: r.trabajoEfectivoMin,
+    vh:    cfg.sueldo ? valorHora(cfg.sueldo) : 0,
     motivo,
   };
 
