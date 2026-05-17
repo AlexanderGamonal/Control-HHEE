@@ -171,6 +171,11 @@
   html[data-fs="xlarge"] .preview-row .val { font-size: 17px; }
   html[data-fs="xlarge"] .tag { font-size: 14px; }
 
+  /* ── CABECERA SEMANAL EN TABLA ──────────────────────────────── */
+  .week-header td { background: var(--surface2); color: var(--text-muted); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 11px; border-top: 2px solid var(--border); }
+  .week-header .week-hhee { color: var(--accent); font-weight: 600; }
+  .week-header .week-monto { color: var(--accent2); font-weight: 600; }
+
   /* ── SELECTOR DE TAMAÑO ─────────────────────────────────────── */
   .fs-selector { display: flex; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
   .fs-btn { flex: 1; background: var(--bg); border: none; border-right: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 8px 4px; font-family: var(--sans); font-weight: 700; transition: all 0.15s; }
@@ -294,7 +299,7 @@
       <!-- Preview automático -->
       <div class="preview-box" id="preview-box">
         <div class="preview-header">
-          <span>Cálculo previo</span>
+          <span>Resumen del día</span>
           <span id="prev-turno-badge" class="turno-badge"></span>
         </div>
         <div class="preview-rows">
@@ -311,20 +316,8 @@
             <span class="val" id="prev-total">—</span>
           </div>
           <div class="preview-row">
-            <span class="lbl">Fin jornada / inicio HHEE</span>
-            <span class="val hhee" id="prev-finjornada">—</span>
-          </div>
-          <div class="preview-row">
-            <span class="lbl">Horas extra</span>
-            <span class="val hhee" id="prev-hhee">—</span>
-          </div>
-          <div class="preview-row">
-            <span class="lbl">Valor hora</span>
-            <span class="val muted" id="prev-vh">—</span>
-          </div>
-          <div class="preview-row">
-            <span class="lbl">Monto HHEE</span>
-            <span class="val green" id="prev-monto">—</span>
+            <span class="lbl">Horas efectivas del día</span>
+            <span class="val hhee" id="prev-efectivo">—</span>
           </div>
         </div>
       </div>
@@ -381,9 +374,9 @@
               <th>Salida</th>
               <th>Turno</th>
               <th>Fin jornada</th>
-              <th>HHEE</th>
+              <th>Horas ef.</th>
+              <th>HHEE sem.</th>
               <th>Monto S/</th>
-              <th>Motivo</th>
               <th></th>
             </tr>
           </thead>
@@ -432,7 +425,8 @@ const KEY_CFG   = 'hhee_cfg';
 const KEY_DATA  = 'hhee_data';
 const KEY_SETUP = 'hhee_setup_done';
 const HORA_NOCHE        = 19 * 60;   // 19:00 en minutos
-const JORNADA_MIN       = 8 * 60;    // 8h trabajo efectivo
+const JORNADA_MIN       = 8 * 60;    // 8h trabajo efectivo por día
+const JORNADA_SEMANAL_MIN = 48 * 60; // 48h umbral semanal para HHEE
 const REFRIGERIO_MIN    = 45;        // 45 min refrigerio
 
 // ── INIT ───────────────────────────────────────────────────────
@@ -591,6 +585,73 @@ function calcMonto(hheeDecimal, vh) {
 
 function valorHora(sueldo) { return sueldo / 30 / 8; }
 
+// ── CÁLCULO SEMANAL DE HHEE ────────────────────────────────────
+function getMondayOfWeek(fechaStr) {
+  const d = new Date(fechaStr + 'T00:00:00');
+  const day = d.getDay(); // 0=Dom, 1=Lun...
+  const diff = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function calcHHEESemanales(registros) {
+  const cfg = getConfig();
+  const vh  = cfg.sueldo ? valorHora(cfg.sueldo) : 0;
+
+  // Agrupar por semana (lunes como clave)
+  const semanas = {};
+  registros.forEach(r => {
+    const w = getMondayOfWeek(r.fecha);
+    if (!semanas[w]) semanas[w] = [];
+    semanas[w].push(r);
+  });
+
+  const mapa = {};
+
+  Object.keys(semanas).forEach(w => {
+    const dias = semanas[w].slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    // Obtener minutos efectivos por día (retrocompat con registros sin trabajoEfectivoMin)
+    dias.forEach(r => {
+      if (r.trabajoEfectivoMin !== undefined) {
+        r._trabajo = r.trabajoEfectivoMin;
+      } else {
+        const eMin = tiempoAMin(r.entrada);
+        let sMin = tiempoAMin(r.salida);
+        if (sMin <= eMin) sMin += 1440;
+        r._trabajo = Math.max(0, sMin - eMin - (r.refrigerioMin || 0));
+      }
+    });
+
+    let acumPrev = 0;
+    let hheeAcumPrev = 0; // HHEE acumuladas en la semana hasta este día
+
+    dias.forEach(r => {
+      const acumNow = acumPrev + r._trabajo;
+      // HHEE generadas específicamente en este día
+      const hheeHoy = Math.max(0, acumNow - JORNADA_SEMANAL_MIN)
+                    - Math.max(0, acumPrev - JORNADA_SEMANAL_MIN);
+
+      // Split 25%/35% en el tramo semanal (120 min = 2h al 25%)
+      const h1 = Math.max(0, Math.min(hheeHoy, 120 - hheeAcumPrev));
+      const h2 = hheeHoy - h1;
+      const monto = vh ? (h1 / 60 * vh * 1.25) + (h2 / 60 * vh * 1.35) : 0;
+
+      mapa[r.fecha] = {
+        hheeMin:     hheeHoy,
+        hheeStr:     minAHoraStr(hheeHoy),
+        hheeDecimal: hheeHoy / 60,
+        monto:       monto.toFixed(2),
+      };
+
+      acumPrev = acumNow;
+      hheeAcumPrev += hheeHoy;
+    });
+  });
+
+  return mapa;
+}
+
 // ── AUTO PREVIEW ───────────────────────────────────────────────
 function autoPreview() {
   const entrada = document.getElementById('reg-entrada').value;
@@ -598,24 +659,17 @@ function autoPreview() {
   const box     = document.getElementById('preview-box');
   if (!entrada || !salida) { box.style.display = 'none'; return; }
 
-  const r     = calcHHEE(entrada, salida);
-  const cfg   = getConfig();
-  const vh    = cfg.sueldo ? valorHora(cfg.sueldo) : 0;
-  const monto = calcMonto(r.hheeDecimal, vh);
+  const r = calcHHEE(entrada, salida);
 
-  // Badge turno
   const badge = document.getElementById('prev-turno-badge');
   badge.textContent = r.turnoLabel;
   badge.style.background = r.esTurnoNoche ? 'rgba(126,184,247,0.12)' : 'rgba(77,157,232,0.12)';
   badge.style.color = r.esTurnoNoche ? 'var(--accent4)' : 'var(--accent)';
 
-  document.getElementById('prev-turno').textContent      = r.esTurnoNoche ? 'Noche (desde 19:00)' : 'Día (antes de 19:00)';
-  document.getElementById('prev-refrig').textContent     = r.refrigerioMin > 0 ? `${r.refrigerioMin} min descontados` : 'Sin descuento';
-  document.getElementById('prev-total').textContent      = minAHoraStr(r.totalLocalMin);
-  document.getElementById('prev-finjornada').textContent = r.finJornadaStr;
-  document.getElementById('prev-hhee').textContent       = r.hheeStr;
-  document.getElementById('prev-vh').textContent         = vh ? `S/ ${vh.toFixed(4)}` : 'Configura sueldo en ⚙️';
-  document.getElementById('prev-monto').textContent      = vh ? `S/ ${monto.toFixed(2)}` : '—';
+  document.getElementById('prev-turno').textContent  = r.esTurnoNoche ? 'Noche (desde 19:00)' : 'Día (antes de 19:00)';
+  document.getElementById('prev-refrig').textContent = r.refrigerioMin > 0 ? `${r.refrigerioMin} min descontados` : 'Sin descuento';
+  document.getElementById('prev-total').textContent  = minAHoraStr(r.totalLocalMin);
+  document.getElementById('prev-efectivo').textContent = minAHoraStr(r.trabajoEfectivoMin);
 
   box.style.display = 'block';
 }
@@ -632,23 +686,18 @@ function registrarDia() {
     showAlert('reg-alert','Completa fecha, entrada y salida','error'); return;
   }
 
-  const r     = calcHHEE(entrada, salida);
-  const vh    = cfg.sueldo ? valorHora(cfg.sueldo) : 0;
-  const monto = calcMonto(r.hheeDecimal, vh);
+  const r = calcHHEE(entrada, salida);
 
   const registros = getRegistros();
   const idx = registros.findIndex(x => x.fecha === fecha);
 
   const nuevo = {
     fecha, entrada, salida,
-    turnoLabel:     r.turnoLabel,
-    esTurnoNoche:   r.esTurnoNoche,
-    refrigerioMin:  r.refrigerioMin,
-    finJornadaStr:  r.finJornadaStr,
-    hheeMin:        r.hheeMin,
-    hheeStr:        r.hheeStr,
-    hheeDecimal:    r.hheeDecimal,
-    monto:          monto.toFixed(2),
+    turnoLabel:         r.turnoLabel,
+    esTurnoNoche:       r.esTurnoNoche,
+    refrigerioMin:      r.refrigerioMin,
+    finJornadaStr:      r.finJornadaStr,
+    trabajoEfectivoMin: r.trabajoEfectivoMin,
     motivo,
   };
 
@@ -679,23 +728,59 @@ function renderTabla(data) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><span>📋</span>Sin registros aún</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = data.map(r => `
-    <tr>
-      <td>${formatFecha(r.fecha)}</td>
-      <td>${r.entrada}</td>
-      <td>${r.salida}</td>
-      <td>
-        <span class="tag ${r.esTurnoNoche ? 'tag-night' : 'tag-0'}" style="${r.esTurnoNoche ? 'background:rgba(126,184,247,0.12);color:var(--accent4)' : ''}">
-          ${r.esTurnoNoche ? '🌙 Noche' : '☀️ Día'}
-        </span>
-      </td>
-      <td style="color:var(--text-muted)">${r.finJornadaStr}</td>
-      <td><span class="tag ${r.hheeMin > 0 ? 'tag-hhee' : 'tag-0'}">${r.hheeStr}</span></td>
-      <td>${r.hheeMin > 0 ? `<strong style="color:var(--accent2)">S/ ${r.monto}</strong>` : '—'}</td>
-      <td style="color:var(--text-muted);font-size:11px">${r.motivo || '—'}</td>
-      <td><button class="del-btn" onclick="eliminarRegistro('${r.fecha}')">✕</button></td>
-    </tr>
-  `).join('');
+
+  // Calcular HHEE semanales usando TODOS los registros (no solo los filtrados)
+  const mapa = calcHHEESemanales(getRegistros());
+
+  // Agrupar los datos mostrados por semana
+  const semanas = {};
+  data.forEach(r => {
+    const w = getMondayOfWeek(r.fecha);
+    if (!semanas[w]) semanas[w] = [];
+    semanas[w].push(r);
+  });
+
+  const DIAS_ES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let html = '';
+
+  Object.keys(semanas).sort().forEach(lunes => {
+    const dias = semanas[lunes].slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    // Totales de la semana con registros visibles
+    const weekHHEE  = dias.reduce((s, r) => s + (mapa[r.fecha]?.hheeMin || 0), 0);
+    const weekMonto = dias.reduce((s, r) => s + parseFloat(mapa[r.fecha]?.monto || 0), 0);
+    const domingo   = new Date(lunes + 'T00:00:00');
+    domingo.setDate(domingo.getDate() + 6);
+    const domStr = domingo.toISOString().slice(0,10);
+
+    html += `<tr class="week-header">
+      <td colspan="6">Semana ${formatFecha(lunes)} – ${formatFecha(domStr)}</td>
+      <td class="week-hhee">${weekHHEE > 0 ? minAHoraStr(weekHHEE) : '0h'}</td>
+      <td class="week-monto" colspan="2">${weekMonto > 0 ? `S/ ${weekMonto.toFixed(2)}` : '—'}</td>
+    </tr>`;
+
+    dias.forEach(r => {
+      const hh = mapa[r.fecha] || { hheeMin: 0, hheeStr: '0h 00m', monto: '0.00' };
+      const dayName = DIAS_ES[new Date(r.fecha + 'T00:00:00').getDay()];
+      html += `<tr>
+        <td>${dayName} ${formatFecha(r.fecha)}</td>
+        <td>${r.entrada}</td>
+        <td>${r.salida}</td>
+        <td>
+          <span class="tag" style="${r.esTurnoNoche ? 'background:rgba(126,184,247,0.12);color:var(--accent4)' : 'background:rgba(77,157,232,0.08);color:var(--accent)'}">
+            ${r.esTurnoNoche ? '🌙 Noche' : '☀️ Día'}
+          </span>
+        </td>
+        <td style="color:var(--text-muted)">${r.finJornadaStr}</td>
+        <td style="color:var(--text-muted)">${minAHoraStr(r.trabajoEfectivoMin !== undefined ? r.trabajoEfectivoMin : (r._trabajo || 0))}</td>
+        <td><span class="tag ${hh.hheeMin > 0 ? 'tag-hhee' : 'tag-0'}">${hh.hheeStr}</span></td>
+        <td>${hh.hheeMin > 0 ? `<strong style="color:var(--accent2)">S/ ${hh.monto}</strong>` : '—'}</td>
+        <td><button class="del-btn" onclick="eliminarRegistro('${r.fecha}')">✕</button></td>
+      </tr>`;
+    });
+  });
+
+  tbody.innerHTML = html;
 }
 
 function formatFecha(str) {
@@ -713,10 +798,9 @@ function eliminarRegistro(fecha) {
 
 // ── RESUMEN ────────────────────────────────────────────────────
 function calcularResumen(data) {
-  const cfg        = getConfig();
-  const vh         = cfg.sueldo ? valorHora(cfg.sueldo) : 0;
-  const totalHHEE  = data.reduce((s,r) => s + r.hheeMin, 0);
-  const totalMonto = data.reduce((s,r) => s + parseFloat(r.monto), 0);
+  const mapa       = calcHHEESemanales(getRegistros());
+  const totalHHEE  = data.reduce((s, r) => s + (mapa[r.fecha]?.hheeMin  || 0), 0);
+  const totalMonto = data.reduce((s, r) => s + parseFloat(mapa[r.fecha]?.monto || 0), 0);
   const noche      = data.filter(r => r.esTurnoNoche).length;
 
   document.getElementById('stat-dias').textContent  = data.length;
@@ -744,12 +828,18 @@ function verTodo() {
 function exportarCSV() {
   const data = getRegistros();
   if (!data.length) { showAlert('export-alert','Sin datos para exportar','error'); return; }
-  const headers = ['Fecha','Entrada','Salida','Turno','Fin Jornada','HHEE','Monto S/','Motivo'];
-  const rows    = data.map(r => [
-    r.fecha, r.entrada, r.salida,
-    r.esTurnoNoche ? 'Noche' : 'Día',
-    r.finJornadaStr, r.hheeStr, r.monto, r.motivo||''
-  ].join(','));
+  const mapa    = calcHHEESemanales(data);
+  const headers = ['Fecha','Entrada','Salida','Turno','Fin Jornada','Horas Ef.','HHEE Sem.','Monto S/','Motivo'];
+  const rows    = data.map(r => {
+    const hh = mapa[r.fecha] || { hheeStr: '0h 00m', monto: '0.00' };
+    return [
+      r.fecha, r.entrada, r.salida,
+      r.esTurnoNoche ? 'Noche' : 'Día',
+      r.finJornadaStr,
+      minAHoraStr(r.trabajoEfectivoMin !== undefined ? r.trabajoEfectivoMin : 0),
+      hh.hheeStr, hh.monto, r.motivo||''
+    ].join(',');
+  });
   const csv  = [headers.join(','), ...rows].join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
   const url  = URL.createObjectURL(blob);
@@ -771,12 +861,19 @@ async function exportarSheets() {
       method: 'POST',
       mode: 'no-cors',
       body: JSON.stringify({
-        rows: data.map(r => ({
-          fecha: r.fecha, entrada: r.entrada, salida: r.salida,
-          turno: r.esTurnoNoche ? 'Noche' : 'Día',
-          finJornada: r.finJornadaStr, hhee: r.hheeStr,
-          monto: r.monto, motivo: r.motivo||'',
-        }))
+        rows: (function() {
+          const mapa = calcHHEESemanales(data);
+          return data.map(r => {
+            const hh = mapa[r.fecha] || { hheeStr: '0h 00m', monto: '0.00' };
+            return {
+              fecha: r.fecha, entrada: r.entrada, salida: r.salida,
+              turno: r.esTurnoNoche ? 'Noche' : 'Día',
+              finJornada: r.finJornadaStr,
+              horasEf: minAHoraStr(r.trabajoEfectivoMin !== undefined ? r.trabajoEfectivoMin : 0),
+              hhee: hh.hheeStr, monto: hh.monto, motivo: r.motivo||'',
+            };
+          });
+        })()
       }),
     });
     showAlert('export-alert','✓ Enviado a Google Sheets','success');
