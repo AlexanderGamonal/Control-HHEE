@@ -480,15 +480,27 @@ function formatTimeInput(e) {
 }
 
 function validateTimeInput(e) {
-  const parts = e.target.value.split(':');
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (parts.length !== 2 || isNaN(h) || h > 23 || isNaN(m) || m > 59) {
-    e.target.setCustomValidity('Hora inválida (HH:MM, 00:00–23:59)');
-    e.target.reportValidity();
-  } else {
+  let v = e.target.value.replace(/\D/g, '');
+  if (!v) { e.target.setCustomValidity(''); return; }
+
+  // Auto-completar: "8"→"0800", "08"→"0800", "830"→"0830"
+  if (v.length === 1) v = '0' + v + '00';
+  if (v.length === 2) v = v + '00';
+  if (v.length === 3) v = v[0] + v[1] + v[2] + '0'; // ej "083" → "0830"
+  v = v.slice(0, 4);
+
+  const h = parseInt(v.slice(0, 2), 10);
+  const m = parseInt(v.slice(2, 4), 10);
+
+  if (h > 23 || m > 59) {
+    e.target.value = '';
     e.target.setCustomValidity('');
+    return;
   }
+
+  e.target.value = v.slice(0, 2) + ':' + v.slice(2, 4);
+  e.target.setCustomValidity('');
+  autoPreview();
 }
 
 function setFontSize(size) {
