@@ -142,6 +142,44 @@
     .form-grid { grid-template-columns: 1fr 1fr; }
     .stats-grid { grid-template-columns: 1fr 1fr; }
   }
+
+  /* ── TAMAÑO FUENTE: GRANDE ──────────────────────────────────── */
+  html[data-fs="large"] input, html[data-fs="large"] select { font-size: 16px; }
+  html[data-fs="large"] .section-header { font-size: 14px; }
+  html[data-fs="large"] label { font-size: 12px; }
+  html[data-fs="large"] .btn { font-size: 13px; padding: 10px 20px; }
+  html[data-fs="large"] table { font-size: 14px; }
+  html[data-fs="large"] td, html[data-fs="large"] th { padding: 11px 13px; }
+  html[data-fs="large"] .stat-value { font-size: 24px; }
+  html[data-fs="large"] .stat-label { font-size: 12px; }
+  html[data-fs="large"] .alert { font-size: 14px; }
+  html[data-fs="large"] .preview-row .lbl { font-size: 13px; }
+  html[data-fs="large"] .preview-row .val { font-size: 15px; }
+  html[data-fs="large"] .tag { font-size: 13px; }
+
+  /* ── TAMAÑO FUENTE: EXTRA GRANDE ────────────────────────────── */
+  html[data-fs="xlarge"] input, html[data-fs="xlarge"] select { font-size: 18px; }
+  html[data-fs="xlarge"] .section-header { font-size: 16px; }
+  html[data-fs="xlarge"] label { font-size: 14px; }
+  html[data-fs="xlarge"] .btn { font-size: 15px; padding: 11px 22px; }
+  html[data-fs="xlarge"] table { font-size: 15px; }
+  html[data-fs="xlarge"] td, html[data-fs="xlarge"] th { padding: 13px 15px; }
+  html[data-fs="xlarge"] .stat-value { font-size: 28px; }
+  html[data-fs="xlarge"] .stat-label { font-size: 13px; }
+  html[data-fs="xlarge"] .alert { font-size: 15px; }
+  html[data-fs="xlarge"] .preview-row .lbl { font-size: 14px; }
+  html[data-fs="xlarge"] .preview-row .val { font-size: 17px; }
+  html[data-fs="xlarge"] .tag { font-size: 14px; }
+
+  /* ── SELECTOR DE TAMAÑO ─────────────────────────────────────── */
+  .fs-selector { display: flex; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+  .fs-btn { flex: 1; background: var(--bg); border: none; border-right: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 8px 4px; font-family: var(--sans); font-weight: 700; transition: all 0.15s; }
+  .fs-btn:last-child { border-right: none; }
+  .fs-btn:nth-child(1) { font-size: 12px; }
+  .fs-btn:nth-child(2) { font-size: 16px; }
+  .fs-btn:nth-child(3) { font-size: 20px; }
+  .fs-btn.active { background: var(--accent); color: #0d0f14; }
+  .fs-btn:not(.active):hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -171,6 +209,14 @@
         <div class="field">
           <label>Google Sheets Script URL</label>
           <input type="url" id="cfg-url" placeholder="https://script.google.com/...">
+        </div>
+        <div class="field">
+          <label>Tamaño de fuente</label>
+          <div class="fs-selector">
+            <button class="fs-btn active" data-size="normal" onclick="setFontSize('normal')">A</button>
+            <button class="fs-btn" data-size="large" onclick="setFontSize('large')">A</button>
+            <button class="fs-btn" data-size="xlarge" onclick="setFontSize('xlarge')">A</button>
+          </div>
         </div>
       </div>
 
@@ -397,6 +443,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (cfg.sueldo) document.getElementById('cfg-sueldo').value = cfg.sueldo;
   if (cfg.url)    document.getElementById('cfg-url').value    = cfg.url;
   if (localStorage.getItem(KEY_SETUP) === '1') ocultarSetup();
+  if (cfg.fontSize) setFontSize(cfg.fontSize);
   renderTabla();
   calcularResumen(getRegistros());
 });
@@ -450,10 +497,21 @@ function validateTimeInput(e) {
   }
 }
 
+function setFontSize(size) {
+  document.documentElement.setAttribute('data-fs', size);
+  document.querySelectorAll('.fs-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.size === size);
+  });
+  var cfg = getConfig();
+  cfg.fontSize = size;
+  localStorage.setItem(KEY_CFG, JSON.stringify(cfg));
+}
+
 function guardarConfig() {
   const cfg = {
-    sueldo: parseFloat(document.getElementById('cfg-sueldo').value) || 0,
-    url:    document.getElementById('cfg-url').value.trim(),
+    sueldo:   parseFloat(document.getElementById('cfg-sueldo').value) || 0,
+    url:      document.getElementById('cfg-url').value.trim(),
+    fontSize: document.documentElement.getAttribute('data-fs') || 'normal',
   };
   localStorage.setItem(KEY_CFG, JSON.stringify(cfg));
   localStorage.setItem(KEY_SETUP, '1');
