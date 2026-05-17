@@ -223,7 +223,7 @@
   </div>
 
   <!-- REGISTRAR DÍA -->
-  <div class="section" data-accordion="main">
+  <div class="section" id="sec-registrar" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Registrar día<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="form-grid">
@@ -291,7 +291,7 @@
   </div>
 
   <!-- RESUMEN -->
-  <div class="section collapsed" data-accordion="main">
+  <div class="section collapsed" id="sec-resumen" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Resumen<span class="chevron">▲</span></div>
     <div class="section-body">
       <div class="filter-row">
@@ -322,7 +322,7 @@
   </div>
 
   <!-- HISTORIAL -->
-  <div class="section collapsed" data-accordion="main">
+  <div class="section collapsed" id="sec-historial" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Historial<span class="chevron">▲</span></div>
     <div class="section-body">
       <div id="tabla-alert"></div>
@@ -422,11 +422,12 @@ function ocultarSetup() {
 
 function toggleSection(header) {
   const section = header.closest('.section');
-  const isCollapsed = section.classList.contains('collapsed');
-  // Cerrar todas las secciones del acordeón principal
-  document.querySelectorAll('.section[data-accordion="main"]').forEach(s => s.classList.add('collapsed'));
-  // Si estaba cerrada, abrirla; si estaba abierta, queda cerrada
-  if (isCollapsed) section.classList.remove('collapsed');
+  const wasCollapsed = section.classList.contains('collapsed');
+  ['sec-registrar','sec-resumen','sec-historial'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add('collapsed');
+  });
+  if (wasCollapsed) section.classList.remove('collapsed');
 }
 
 function formatTimeInput(e) {
