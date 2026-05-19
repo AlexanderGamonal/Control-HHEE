@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hhee-v9';
+const CACHE_NAME = 'hhee-v10';
 const ASSETS = [
   './',
   './index.html',
