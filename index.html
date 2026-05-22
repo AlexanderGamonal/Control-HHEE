@@ -122,6 +122,13 @@
   .filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
   .filter-row label { color: var(--text-muted); font-size: 11px; }
 
+  /* ── NAVEGADOR DE PERÍODO ───────────────────────────────────── */
+  .periodo-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .periodo-btn { flex: 1; font-size: 11px; letter-spacing: 0.05em; min-width: 0; text-align: center; }
+  .icon-btn    { padding: 8px 14px; flex-shrink: 0; }
+  .export-scope { display: flex; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+  .radio-lbl   { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
   .empty { text-align: center; padding: 36px; color: var(--text-dim); font-size: 12px; }
   .empty span { display: block; font-size: 26px; margin-bottom: 8px; }
 
@@ -368,11 +375,13 @@
   <div class="section collapsed" id="sec-resumen" data-accordion="main">
     <div class="section-header" onclick="toggleSection(this)"><div class="dot"></div> Resumen<span class="chevron">▲</span></div>
     <div class="section-body">
-      <div class="filter-row">
-        <label>Mes:</label>
-        <input type="month" id="filter-mes" style="width:170px;">
-        <button class="btn btn-outline" onclick="filtrarMes()">Ver</button>
-        <button class="btn btn-outline" onclick="verTodo()">Todo</button>
+      <div class="periodo-nav">
+        <button class="btn btn-outline icon-btn" onclick="navegarPeriodo(-1)">◀</button>
+        <button class="btn btn-outline periodo-btn" onclick="periodoHoy()">
+          <span id="periodo-label">Período actual</span>
+        </button>
+        <button class="btn btn-outline icon-btn" onclick="navegarPeriodo(1)">▶</button>
+        <button class="btn btn-outline" onclick="verTodoPeriodo()">Todo</button>
       </div>
       <div class="stats-grid">
         <div class="stat-card">
@@ -418,6 +427,14 @@
           <tbody id="tabla-body"></tbody>
         </table>
       </div>
+      <div class="export-scope">
+        <label class="radio-lbl">
+          <input type="radio" name="exp-scope" value="periodo" checked> Período activo
+        </label>
+        <label class="radio-lbl">
+          <input type="radio" name="exp-scope" value="todo"> Todos
+        </label>
+      </div>
       <div class="btn-row">
         <button class="btn btn-success" onclick="exportarSheets()">↑ Sync Google Sheets</button>
         <button class="btn btn-outline" onclick="exportarCSV()">↓ Descargar CSV</button>
@@ -436,13 +453,13 @@ const APPS_SCRIPT = `function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("HHEE") || ss.insertSheet("HHEE");
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Fecha","Entrada","Salida","Turno","Fin Jornada","HHEE","Monto S/","Motivo","Actualizado"]);
-      sheet.getRange(1,1,1,9).setFontWeight("bold").setBackground("#1c2030").setFontColor("#4d9de8");
+      sheet.appendRow(["Período","Fecha","Entrada","Salida","Turno","Fin Jornada","HHEE","Monto S/","Tipo Día","Motivo","Actualizado"]);
+      sheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#1c2030").setFontColor("#4d9de8");
     }
     var payload = JSON.parse(e.postData.contents);
     if (sheet.getLastRow() > 1) sheet.deleteRows(2, sheet.getLastRow() - 1);
     payload.rows.forEach(function(r) {
-      sheet.appendRow([r.fecha, r.entrada, r.salida, r.turno, r.finJornada, r.hhee, r.monto, r.motivo, new Date().toLocaleString("es-PE")]);
+      sheet.appendRow([r.periodo, r.fecha, r.entrada, r.salida, r.turno, r.finJornada, r.hhee, r.monto, r.tipoDia, r.motivo, new Date().toLocaleString("es-PE")]);
     });
     return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
@@ -466,15 +483,13 @@ const REFRIGERIO_MIN    = 45;        // 45 min refrigerio
 
 // ── INIT ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('reg-fecha').value  = hoy();
-  document.getElementById('filter-mes').value = mesActual();
+  document.getElementById('reg-fecha').value = hoy();
   const cfg = getConfig();
   if (cfg.sueldo) { document.getElementById('cfg-sueldo').value = cfg.sueldo; actualizarVhRef(); }
   if (cfg.url)    document.getElementById('cfg-url').value    = cfg.url;
   if (localStorage.getItem(KEY_SETUP) === '1') ocultarSetup();
   if (cfg.fontSize) setFontSize(cfg.fontSize);
-  renderTabla();
-  calcularResumen(getRegistros());
+  periodoHoy();
 });
 
 // ── CONFIG ─────────────────────────────────────────────────────
@@ -577,6 +592,28 @@ function mesActual() { return new Date().toISOString().slice(0,7); }
 function getConfig() { return JSON.parse(localStorage.getItem(KEY_CFG) || '{}'); }
 function getRegistros() { return JSON.parse(localStorage.getItem(KEY_DATA) || '[]'); }
 function saveRegistros(d) { localStorage.setItem(KEY_DATA, JSON.stringify(d)); }
+
+function getPeriodoDeFecha(fechaStr) {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  let iY, iM, fY, fM;
+  if (d >= 16) {
+    iY = y; iM = m;
+    fM = m === 12 ? 1 : m + 1;
+    fY = m === 12 ? y + 1 : y;
+  } else {
+    iM = m === 1 ? 12 : m - 1;
+    iY = m === 1 ? y - 1 : y;
+    fY = y; fM = m;
+  }
+  return {
+    inicio: `${iY}-${String(iM).padStart(2,'0')}-16`,
+    fin:    `${fY}-${String(fM).padStart(2,'0')}-15`,
+  };
+}
+
+function labelPeriodo(inicio, fin) {
+  return `${formatFecha(inicio)} — ${formatFecha(fin)}`;
+}
 
 function tiempoAMin(t) {
   const [h,m] = t.split(':').map(Number);
@@ -839,8 +876,11 @@ function registrarDia() {
 
   registros.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveRegistros(registros);
-  renderTabla();
-  calcularResumen(registros);
+  if (_periodoActivo) {
+    mostrarPeriodo(_periodoActivo.inicio, _periodoActivo.fin);
+  } else {
+    verTodo();
+  }
 
   document.getElementById('reg-entrada').value = '';
   document.getElementById('reg-salida').value  = '';
@@ -930,10 +970,12 @@ function formatFecha(str) {
 
 function eliminarRegistro(fecha) {
   if (!confirm(`¿Eliminar registro del ${formatFecha(fecha)}?`)) return;
-  const data = getRegistros().filter(r => r.fecha !== fecha);
-  saveRegistros(data);
-  renderTabla(data);
-  calcularResumen(data);
+  saveRegistros(getRegistros().filter(r => r.fecha !== fecha));
+  if (_periodoActivo) {
+    mostrarPeriodo(_periodoActivo.inicio, _periodoActivo.fin);
+  } else {
+    verTodo();
+  }
 }
 
 // ── RESUMEN ────────────────────────────────────────────────────
@@ -964,16 +1006,58 @@ function verTodo() {
   calcularResumen(data);
 }
 
+// ── NAVEGADOR DE PERÍODO ───────────────────────────────────────
+let _periodoActivo = null; // null = todo, { inicio, fin } = período filtrado
+
+function mostrarPeriodo(inicio, fin) {
+  _periodoActivo = { inicio, fin };
+  const data = getRegistros().filter(r => r.fecha >= inicio && r.fecha <= fin);
+  renderTabla(data);
+  calcularResumen(data);
+  document.getElementById('periodo-label').textContent = labelPeriodo(inicio, fin);
+}
+
+function periodoHoy() {
+  const p = getPeriodoDeFecha(hoy());
+  mostrarPeriodo(p.inicio, p.fin);
+}
+
+function navegarPeriodo(delta) {
+  const ref = _periodoActivo ? _periodoActivo.inicio : hoy();
+  const [y, m] = ref.split('-').map(Number);
+  let nM = m + delta, nY = y;
+  if (nM > 12) { nM = 1; nY++; }
+  if (nM <  1) { nM = 12; nY--; }
+  const p = getPeriodoDeFecha(`${nY}-${String(nM).padStart(2,'0')}-16`);
+  mostrarPeriodo(p.inicio, p.fin);
+}
+
+function verTodoPeriodo() {
+  _periodoActivo = null;
+  document.getElementById('periodo-label').textContent = 'Todos los registros';
+  verTodo();
+}
+
 // ── EXPORT CSV ─────────────────────────────────────────────────
+function getExportData() {
+  const scope = document.querySelector('input[name="exp-scope"]:checked')?.value;
+  if (scope === 'periodo' && _periodoActivo) {
+    return getRegistros().filter(r => r.fecha >= _periodoActivo.inicio && r.fecha <= _periodoActivo.fin);
+  }
+  return getRegistros();
+}
+
 function exportarCSV() {
-  const data = getRegistros();
-  if (!data.length) { showAlert('export-alert','Sin datos para exportar','error'); return; }
-  const mapa    = calcHHEESemanales(data);
-  const headers = ['Fecha','Entrada','Salida','Turno','Fin Jornada','Horas Ef.','HHEE Sem.','Monto S/','Tipo Día','Motivo'];
+  const data = getExportData();
+  if (!data.length) { showAlert('export-alert','Sin datos para exportar en el período activo','error'); return; }
+  const mapa    = calcHHEESemanales(getRegistros());
+  const headers = ['Período','Fecha','Entrada','Salida','Turno','Fin Jornada','Horas Ef.','HHEE Sem.','Monto S/','Tipo Día','Motivo'];
   const rows    = data.map(r => {
     const hh = mapa[r.fecha] || { hheeStr: '0h 00m', monto: '0.00', tipo: 'regular' };
     const tipoDia = hh.tipo === 'feriado' ? 'Feriado' : hh.tipo === 'domingo' ? 'Domingo' : 'Regular';
+    const per = getPeriodoDeFecha(r.fecha);
     return [
+      `"${labelPeriodo(per.inicio, per.fin)}"`,
       r.fecha, r.entrada, r.salida,
       r.esTurnoNoche ? 'Noche' : 'Día',
       r.finJornadaStr,
@@ -992,10 +1076,10 @@ function exportarCSV() {
 // ── EXPORT SHEETS ──────────────────────────────────────────────
 async function exportarSheets() {
   const cfg  = getConfig();
-  const data = getRegistros();
+  const data = getExportData();
   if (!cfg.url)     { showAlert('export-alert','Configura el Script URL en ⚙️ Ajustes','error'); return; }
   if (!cfg.url.includes('script.google.com')) { showAlert('export-alert','La URL no parece ser de Google Apps Script','error'); return; }
-  if (!data.length) { showAlert('export-alert','Sin datos para exportar','error'); return; }
+  if (!data.length) { showAlert('export-alert','Sin datos para exportar en el período activo','error'); return; }
   showAlert('export-alert','Enviando a Google Sheets...','success');
   try {
     await fetch(cfg.url, {
@@ -1003,11 +1087,13 @@ async function exportarSheets() {
       mode: 'no-cors',
       body: JSON.stringify({
         rows: (function() {
-          const mapa = calcHHEESemanales(data);
+          const mapa = calcHHEESemanales(getRegistros());
           return data.map(r => {
             const hh = mapa[r.fecha] || { hheeStr: '0h 00m', monto: '0.00' };
             const tipoDia = hh.tipo === 'feriado' ? 'Feriado' : hh.tipo === 'domingo' ? 'Domingo' : 'Regular';
+            const per = getPeriodoDeFecha(r.fecha);
             return {
+              periodo: labelPeriodo(per.inicio, per.fin),
               fecha: r.fecha, entrada: r.entrada, salida: r.salida,
               turno: r.esTurnoNoche ? 'Noche' : 'Día',
               finJornada: r.finJornadaStr,
