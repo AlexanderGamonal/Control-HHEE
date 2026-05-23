@@ -832,7 +832,7 @@ function calcHHEEPeriodo(registros, inicio, fin) {
   registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
     const trabajo    = r.trabajoEfectivoMin ?? 0;
     const esEspecial = esDomingo(r.fecha) || esFeriado(r.fecha);
-    const sinComp    = esEspecial && (r.sinCompensacion !== false);
+    const sinComp    = (r.sinCompensacion === true || (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha))));
     if (sinComp) feriadoMin += trabajo;
     else         regularMin += trabajo;
   });
@@ -926,6 +926,11 @@ function registrarDia() {
   document.getElementById('reg-entrada').value = '';
   document.getElementById('reg-salida').value  = '';
   document.getElementById('reg-motivo').value  = '';
+  const chkReset = document.getElementById('chk-sin-compensacion');
+  if (chkReset) chkReset.checked = false;
+  const lblReset = document.getElementById('label-descanso');
+  if (lblReset) lblReset.style.display = 'flex';
+  document.getElementById('special-day-notice').style.display = 'none';
   document.getElementById('preview-box').style.display = 'none';
 }
 
@@ -966,18 +971,18 @@ function renderTabla(data) {
     dias.forEach(r => {
       const dayName    = DIAS_ES[new Date(r.fecha + 'T00:00:00').getDay()];
       const esEspecial = esDomingo(r.fecha) || esFeriado(r.fecha);
-      const sinComp    = esEspecial && (r.sinCompensacion !== false);
+      const sinComp    = (r.sinCompensacion === true || (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha))));
       const esFer      = esFeriado(r.fecha);
 
       let badgeEsp = '';
-      if (esEspecial) {
-        if (sinComp) {
-          badgeEsp = esFer
-            ? `<span class="tag tag-feriado" style="margin-left:4px">×2</span>`
-            : `<span class="tag tag-dom" style="margin-left:4px">×2</span>`;
-        } else {
-          badgeEsp = `<span class="tag tag-0" style="margin-left:4px;font-size:10px">Comp.</span>`;
-        }
+      if (sinComp) {
+        badgeEsp = esFer
+          ? `<span class="tag tag-feriado" style="margin-left:4px">×2</span>`
+          : esDomingo(r.fecha)
+            ? `<span class="tag tag-dom" style="margin-left:4px">×2</span>`
+            : `<span class="tag tag-dom" style="margin-left:4px">Desc×2</span>`;
+      } else if (esEspecial) {
+        badgeEsp = `<span class="tag tag-0" style="margin-left:4px;font-size:10px">Comp.</span>`;
       }
 
       const deltaMin = (r.trabajoEfectivoMin || 0) - 480;
@@ -1107,7 +1112,7 @@ function exportarCSV() {
   const headers = ['Período','Fecha','Entrada','Salida','Turno','Fin Jornada','Horas Ef.','Delta ±8h','Tipo','Motivo'];
   const rows    = data.map(r => {
     const esEspecial = esDomingo(r.fecha) || esFeriado(r.fecha);
-    const sinComp    = esEspecial && (r.sinCompensacion !== false);
+    const sinComp    = (r.sinCompensacion === true || (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha))));
     const esFer      = esFeriado(r.fecha);
     const tipo       = esEspecial
       ? (sinComp ? (esFer ? 'Feriado\xd72' : 'Dom\xd72') : (esFer ? 'FeriadoComp' : 'DomComp'))
@@ -1147,7 +1152,7 @@ async function exportarSheets() {
       body: JSON.stringify({
         rows: data.map(r => {
           const esEspecial = esDomingo(r.fecha) || esFeriado(r.fecha);
-          const sinComp    = esEspecial && (r.sinCompensacion !== false);
+          const sinComp    = (r.sinCompensacion === true || (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha))));
           const esFer      = esFeriado(r.fecha);
           const tipo       = esEspecial
             ? (sinComp ? (esFer ? 'Feriado\xd72' : 'Dom\xd72') : (esFer ? 'FeriadoComp' : 'DomComp'))
