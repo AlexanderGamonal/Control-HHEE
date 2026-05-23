@@ -730,21 +730,43 @@ function esDomingo(fechaStr) {
   return new Date(fechaStr + 'T00:00:00').getDay() === 0;
 }
 
+// Nombres de feriados fijos para mostrar en el aviso
+const FERIADOS_FIJOS = {
+  '01-01': 'Año Nuevo',
+  '05-01': 'Día del Trabajo',
+  '06-29': 'San Pedro y San Pablo',
+  '07-23': 'Día de la Fuerza Aérea del Perú',
+  '07-28': 'Fiestas Patrias',
+  '07-29': 'Fiestas Patrias',
+  '08-30': 'Santa Rosa de Lima',
+  '10-08': 'Combate de Angamos',
+  '11-01': 'Todos los Santos',
+  '12-08': 'Inmaculada Concepción',
+  '12-09': 'Batalla de Ayacucho',
+  '12-25': 'Navidad',
+};
+
+function offsetDesdePascua(y, dias) {
+  const e0 = pascua(y);
+  const d  = new Date(e0);
+  d.setDate(e0.getDate() + dias);
+  return String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function nombreFeriado(fechaStr) {
+  const d    = new Date(fechaStr + 'T00:00:00');
+  const y    = d.getFullYear();
+  const mmdd = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  if (FERIADOS_FIJOS[mmdd]) return FERIADOS_FIJOS[mmdd];
+  if (mmdd === offsetDesdePascua(y, -48)) return 'Lunes de Carnaval';
+  if (mmdd === offsetDesdePascua(y, -47)) return 'Martes de Carnaval';
+  if (mmdd === offsetDesdePascua(y,  -3)) return 'Jueves Santo';
+  if (mmdd === offsetDesdePascua(y,  -2)) return 'Viernes Santo';
+  return null;
+}
+
 function esFeriado(fechaStr) {
-  const d  = new Date(fechaStr + 'T00:00:00');
-  const y  = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  const mmdd = mm + '-' + dd;
-  // Feriados fijos nacionales del Perú
-  const fijos = ['01-01','05-01','06-29','07-28','07-29','08-30','10-08','11-01','12-08','12-09','12-25'];
-  if (fijos.includes(mmdd)) return true;
-  // Jueves Santo y Viernes Santo (Semana Santa)
-  const e0  = pascua(y);
-  const fmt = x => String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
-  const jue = new Date(e0); jue.setDate(e0.getDate()-3);
-  const vie = new Date(e0); vie.setDate(e0.getDate()-2);
-  return mmdd === fmt(jue) || mmdd === fmt(vie);
+  return nombreFeriado(fechaStr) !== null;
 }
 
 function checkSpecialDay() {
@@ -753,7 +775,7 @@ function checkSpecialDay() {
   if (!fecha) { el.style.display = 'none'; return; }
   if (esFeriado(fecha)) {
     el.className = 'notice-dia-especial feriado';
-    el.innerHTML = `📅 Feriado nacional — pago doble (×2)`;
+    el.innerHTML = `📅 ${nombreFeriado(fecha)} — pago doble (×2)`;
     el.style.display = 'block';
   } else if (esDomingo(fecha)) {
     el.className = 'notice-dia-especial dom';
