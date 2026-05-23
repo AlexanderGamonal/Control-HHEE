@@ -826,7 +826,13 @@ function calcHHEEPeriodo(registros, inicio, fin) {
     if (esFeriado(f) && !fechasRegistradas.has(f)) feriadosNoTrabajados++;
     d.setDate(d.getDate() + 1);
   }
-  const obligatorioMin = Math.max(0, Math.round((N / 7) * jorn) - feriadosNoTrabajados * diaMin);
+  // Umbral exacto: semanas completas × 6 días + días residuales (sin descanso en semana parcial)
+  // Más preciso que N/7 × 48h que usa semanas fraccionarias.
+  // Ej: 30 días → floor(30/7)=4 sem × 6 + 2 residuales = 26 días laborables
+  const semanasCompletas = Math.floor(N / 7);
+  const diasRestantes    = N % 7;
+  const diasLaborables   = semanasCompletas * 6 + diasRestantes;
+  const obligatorioMin   = Math.max(0, (diasLaborables - feriadosNoTrabajados) * diaMin);
 
   let regularMin = 0, feriadoMin = 0;
   registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
@@ -1034,8 +1040,9 @@ function calcularResumen(data) {
     totalHHEE  = p.hheeMin;
     totalMonto = p.montoTotal;
     if (p.feriadosNoTrabajados > 0) {
-      const hRed = (p.feriadosNoTrabajados * Math.round((cfg => (cfg.jornadaSemanal||48)*60/6)(getConfig())) / 60).toFixed(1);
-      notaFeriados = `📅 ${p.feriadosNoTrabajados} feriado${p.feriadosNoTrabajados>1?'s':''} no trabajado${p.feriadosNoTrabajados>1?'s':''} en el período — umbral reducido ${hRed}h (descanso remunerado, D.Leg. 713)`;
+      const n = p.feriadosNoTrabajados;
+      const umbralH = (p.obligatorioMin / 60).toFixed(0);
+      notaFeriados = `📅 ${n} feriado${n>1?'s':''} no trabajado${n>1?'s':''} en el período — umbral ajustado a ${umbralH}h (descanso remunerado, D.Leg. 713)`;
     }
   } else {
     const periodos = new Map();
