@@ -417,6 +417,7 @@
           <div class="stat-value blue" id="stat-noche">—</div>
         </div>
       </div>
+      <div id="nota-feriados-periodo" style="display:none; margin-top:10px; padding:9px 13px; border-radius:2px; font-size:11px; background:rgba(210,70,90,0.07); border:1px solid rgba(210,70,90,0.25); color:#d2465a;"></div>
     </div>
   </div>
 
@@ -810,7 +811,22 @@ function calcHHEEPeriodo(registros, inicio, fin) {
   const vh   = cfg.sueldo ? valorHora(cfg) : 0;
   const jorn = (cfg.jornadaSemanal || 48) * 60;
   const N    = diasEnPeriodo(inicio, fin);
-  const obligatorioMin = Math.round((N / 7) * jorn);
+
+  // Feriados no trabajados en el período: son descansos remunerados (D.Leg. 713)
+  // → reducen el umbral obligatorio en 1 día de jornada (48h / 6 días = 8h)
+  const diaMin = Math.round(jorn / 6);
+  const fechasRegistradas = new Set(
+    registros.filter(r => r.fecha >= inicio && r.fecha <= fin).map(r => r.fecha)
+  );
+  let feriadosNoTrabajados = 0;
+  const d = new Date(inicio + 'T00:00:00');
+  const dFin = new Date(fin + 'T00:00:00');
+  while (d <= dFin) {
+    const f = d.toISOString().slice(0,10);
+    if (esFeriado(f) && !fechasRegistradas.has(f)) feriadosNoTrabajados++;
+    d.setDate(d.getDate() + 1);
+  }
+  const obligatorioMin = Math.max(0, Math.round((N / 7) * jorn) - feriadosNoTrabajados * diaMin);
 
   let regularMin = 0, feriadoMin = 0;
   registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
@@ -827,7 +843,7 @@ function calcHHEEPeriodo(registros, inicio, fin) {
   const montoFeriado = feriadoMin / 60 * vh * 2;
 
   return {
-    obligatorioMin, regularMin, feriadoMin, saldoMin,
+    obligatorioMin, regularMin, feriadoMin, saldoMin, feriadosNoTrabajados,
     hheeMin, hheeStr: minAHoraStr(hheeMin),
     montoHHEE, montoFeriado, montoTotal: montoHHEE + montoFeriado,
   };
@@ -1006,11 +1022,16 @@ function eliminarRegistro(fecha) {
 // ── RESUMEN ────────────────────────────────────────────────────
 function calcularResumen(data) {
   let totalHHEE = 0, totalMonto = 0;
+  let notaFeriados = '';
 
   if (_periodoActivo) {
     const p = calcHHEEPeriodo(getRegistros(), _periodoActivo.inicio, _periodoActivo.fin);
     totalHHEE  = p.hheeMin;
     totalMonto = p.montoTotal;
+    if (p.feriadosNoTrabajados > 0) {
+      const hRed = (p.feriadosNoTrabajados * Math.round((cfg => (cfg.jornadaSemanal||48)*60/6)(getConfig())) / 60).toFixed(1);
+      notaFeriados = `📅 ${p.feriadosNoTrabajados} feriado${p.feriadosNoTrabajados>1?'s':''} no trabajado${p.feriadosNoTrabajados>1?'s':''} en el período — umbral reducido ${hRed}h (descanso remunerado, D.Leg. 713)`;
+    }
   } else {
     const periodos = new Map();
     getRegistros().forEach(r => {
@@ -1028,6 +1049,8 @@ function calcularResumen(data) {
   document.getElementById('stat-hhee').textContent  = minAHoraStr(totalHHEE);
   document.getElementById('stat-monto').textContent = `S/ ${totalMonto.toFixed(2)}`;
   document.getElementById('stat-noche').textContent = data.filter(r => r.esTurnoNoche).length;
+  const notaEl = document.getElementById('nota-feriados-periodo');
+  if (notaEl) { notaEl.textContent = notaFeriados; notaEl.style.display = notaFeriados ? 'block' : 'none'; }
 }
 
 // ── FILTROS ────────────────────────────────────────────────────
