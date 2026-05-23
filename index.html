@@ -753,7 +753,7 @@ function checkSpecialDay() {
   if (!fecha) { el.style.display = 'none'; return; }
   if (esFeriado(fecha)) {
     el.className = 'notice-dia-especial feriado';
-    el.innerHTML = `📅 Feriado nacional — <label><input type="checkbox" id="chk-sin-compensacion" checked> Sin compensación de descanso (×2)</label>`;
+    el.innerHTML = `📅 Feriado nacional — pago doble (×2)`;
     el.style.display = 'block';
   } else if (esDomingo(fecha)) {
     el.className = 'notice-dia-especial dom';
@@ -850,9 +850,12 @@ function registrarDia() {
   const registros = getRegistros();
   const idx = registros.findIndex(x => x.fecha === fecha);
 
-  const esDiaEspecial = esDomingo(fecha) || esFeriado(fecha);
+  const esFeriadoHoy = esFeriado(fecha);
+  const esDomingoHoy = esDomingo(fecha);
   const chkEl = document.getElementById('chk-sin-compensacion');
-  const sinCompensacion = esDiaEspecial ? (chkEl ? chkEl.checked : true) : false;
+  const sinCompensacion = esFeriadoHoy ? true
+    : esDomingoHoy ? (chkEl ? chkEl.checked : true)
+    : false;
 
   const nuevo = {
     fecha, entrada, salida,
