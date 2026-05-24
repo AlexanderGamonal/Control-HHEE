@@ -418,6 +418,24 @@
         </div>
       </div>
       <div id="nota-feriados-periodo" style="display:none; margin-top:10px; padding:9px 13px; border-radius:2px; font-size:11px; background:rgba(210,70,90,0.07); border:1px solid rgba(210,70,90,0.25); color:#d2465a;"></div>
+      <div id="panel-acumulado" style="display:none; margin-top:12px; padding:12px 14px; border-radius:2px; background:rgba(77,232,160,0.06); border:1px solid rgba(77,232,160,0.2);">
+        <div style="font-size:10px; letter-spacing:0.15em; text-transform:uppercase; color:var(--accent2); margin-bottom:8px;">≈ Acumulado · <span id="acum-dias">0</span> días regulares registrados</div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:2px;">HHEE estimadas</div>
+            <div style="font-family:var(--sans); font-size:22px; font-weight:700; color:var(--accent2);" id="acum-hhee">—</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:2px;">Monto estimado</div>
+            <div style="font-family:var(--sans); font-size:22px; font-weight:700; color:var(--accent2);" id="acum-monto">—</div>
+          </div>
+        </div>
+        <div id="acum-fer-row" style="display:none; justify-content:flex-end; margin-top:6px; font-size:11px; color:var(--text-muted); gap:6px;">
+          <span>Feriados/Descanso ×2:</span>
+          <span id="acum-fer" style="color:var(--accent3); font-weight:600;">S/ 0.00</span>
+        </div>
+        <div style="margin-top:8px; font-size:10px; color:var(--text-dim);">Estimado basado en días registrados — varía hasta cerrar el período</div>
+      </div>
     </div>
   </div>
 
@@ -855,6 +873,27 @@ function calcHHEEPeriodo(registros, inicio, fin) {
   };
 }
 
+function calcHHEEAcumulado(registros, inicio, fin) {
+  const cfg    = getConfig();
+  const vh     = cfg.sueldo ? valorHora(cfg) : 0;
+  const diaMin = Math.round((cfg.jornadaSemanal || 48) * 60 / 6);
+
+  let regularMin = 0, feriadoMin = 0, countRegular = 0;
+  registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
+    const trabajo = r.trabajoEfectivoMin ?? 0;
+    const sinComp = r.sinCompensacion === true ||
+      (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha)));
+    if (sinComp) { feriadoMin += trabajo; }
+    else         { regularMin += trabajo; countRegular++; }
+  });
+
+  const hheeAlDia      = Math.max(0, regularMin - countRegular * diaMin);
+  const montoHHEEAlDia = hheeAlDia  / 60 * vh * 1.25;
+  const montoFerAlDia  = feriadoMin / 60 * vh * 2;
+  return { hheeAlDia, montoHHEEAlDia, montoFerAlDia,
+           montoTotalAlDia: montoHHEEAlDia + montoFerAlDia, countRegular };
+}
+
 // ── AUTO PREVIEW ───────────────────────────────────────────────
 function autoPreview() {
   const entrada = document.getElementById('reg-entrada').value;
@@ -1039,6 +1078,21 @@ function calcularResumen(data) {
     const p = calcHHEEPeriodo(getRegistros(), _periodoActivo.inicio, _periodoActivo.fin);
     totalHHEE  = p.hheeMin;
     totalMonto = p.montoTotal;
+    const ac = calcHHEEAcumulado(getRegistros(), _periodoActivo.inicio, _periodoActivo.fin);
+    const panelEl = document.getElementById('panel-acumulado');
+    if (panelEl) {
+      const mostrar = ac.hheeAlDia > 0 || ac.montoFerAlDia > 0;
+      panelEl.style.display = mostrar ? 'block' : 'none';
+      if (mostrar) {
+        document.getElementById('acum-dias').textContent  = ac.countRegular;
+        document.getElementById('acum-hhee').textContent  = minAHoraStr(ac.hheeAlDia);
+        document.getElementById('acum-monto').textContent = `S/ ${ac.montoTotalAlDia.toFixed(2)}`;
+        const ferRow = document.getElementById('acum-fer-row');
+        if (ferRow) ferRow.style.display = ac.montoFerAlDia > 0 ? 'flex' : 'none';
+        const ferEl = document.getElementById('acum-fer');
+        if (ferEl) ferEl.textContent = `S/ ${ac.montoFerAlDia.toFixed(2)}`;
+      }
+    }
     if (p.feriadosNoTrabajados > 0) {
       const n = p.feriadosNoTrabajados;
       const umbralH = (p.obligatorioMin / 60).toFixed(0);
@@ -1055,6 +1109,8 @@ function calcularResumen(data) {
       totalHHEE  += p.hheeMin;
       totalMonto += p.montoTotal;
     });
+    const panelElTodo = document.getElementById('panel-acumulado');
+    if (panelElTodo) panelElTodo.style.display = 'none';
   }
 
   document.getElementById('stat-dias').textContent  = data.length;
