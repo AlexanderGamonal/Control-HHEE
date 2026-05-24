@@ -1081,7 +1081,8 @@ function calcularResumen(data) {
     const ac = calcHHEEAcumulado(getRegistros(), _periodoActivo.inicio, _periodoActivo.fin);
     const panelEl = document.getElementById('panel-acumulado');
     if (panelEl) {
-      const mostrar = ac.hheeAlDia > 0 || ac.montoFerAlDia > 0;
+      const periodoAbierto = hoy() <= _periodoActivo.fin;
+      const mostrar = periodoAbierto && (ac.hheeAlDia > 0 || ac.montoFerAlDia > 0);
       panelEl.style.display = mostrar ? 'block' : 'none';
       if (mostrar) {
         document.getElementById('acum-dias').textContent  = ac.countRegular;
