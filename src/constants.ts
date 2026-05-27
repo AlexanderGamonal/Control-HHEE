@@ -1,8 +1,9 @@
 import type { Config } from './types';
 
-export const HORA_NOCHE     = 19 * 60;
-export const JORNADA_MIN    = 8 * 60;
-export const REFRIGERIO_MIN = 45;
+export const HORA_NOCHE          = 19 * 60;
+export const HORA_SIN_REFRIGERIO = 13 * 60; // entrada > 13:00 → sin descuento refrigerio
+export const JORNADA_MIN         = 8 * 60;
+export const REFRIGERIO_MIN      = 45;
 export const RMV            = 1025;
 
 export const DEFAULT_CONFIG: Config = {

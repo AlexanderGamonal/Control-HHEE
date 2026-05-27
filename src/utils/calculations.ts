@@ -1,5 +1,5 @@
 import type { CalcHHEEResult, PeriodoResult, AcumuladoResult, Registro, Config } from '../types';
-import { HORA_NOCHE, JORNADA_MIN, REFRIGERIO_MIN } from '../constants';
+import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN } from '../constants';
 import { tiempoAMin, minAHoraStr, minToTimeStr } from './timeUtils';
 import { esFeriado } from './holidays';
 import { diasEnPeriodo } from './dateUtils';
@@ -11,7 +11,7 @@ export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult 
   if (salidaMin <= entradaMin) salidaMin += 1440;
 
   const esTurnoNoche = entradaMin >= HORA_NOCHE;
-  const refrigerio   = esTurnoNoche ? 0 : REFRIGERIO_MIN;
+  const refrigerio   = (!esTurnoNoche && entradaMin <= HORA_SIN_REFRIGERIO) ? REFRIGERIO_MIN : 0;
   const totalLocalMin   = salidaMin - entradaMin;
   const trabajoEfectivo = totalLocalMin - refrigerio;
   const finJornadaMin   = entradaMin + JORNADA_MIN + refrigerio;

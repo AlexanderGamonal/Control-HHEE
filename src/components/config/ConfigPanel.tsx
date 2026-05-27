@@ -93,11 +93,18 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
 
         <div className="regla-box">
           <div className="regla">
-            <strong>☀️ Turno día (entrada antes de 19:00)</strong>
+            <strong>☀️ Turno día temprano (entrada hasta 13:00)</strong>
             Jornada total en local: <strong style={{ color: 'var(--text)' }}>8h 45min</strong><br />
-            — 45 min refrigerio (no laborable)<br />
+            — 45 min refrigerio descontados<br />
             — 8h trabajo efectivo<br />
             HHEE inician a las 8h 45min de entrada
+          </div>
+          <div className="regla">
+            <strong>☀️ Turno día tarde (entrada después de 13:00)</strong>
+            Jornada total en local: <strong style={{ color: 'var(--text)' }}>8h 00min</strong><br />
+            — Sin descuento de refrigerio<br />
+            — 8h trabajo efectivo<br />
+            HHEE inician a las 8h 00min de entrada
           </div>
           <div className="regla night">
             <strong>🌙 Turno noche (entrada 19:00 o después)</strong>
