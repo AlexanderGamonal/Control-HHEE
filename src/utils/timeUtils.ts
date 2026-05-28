@@ -25,7 +25,7 @@ export function getDeltaInfo(trabajoMin: number | undefined): DeltaInfo {
   return {
     deltaMin:    delta,
     deltaUI:     (delta >= 0 ? '+' : '−') + minAHoraStr(absDelta),
-    deltaExport: (delta >= 0 ? '+' : '-') + minAHoraStr(absDelta),
+    deltaExport: minAHoraStr(absDelta) + (delta > 0 ? ' +' : delta < 0 ? ' -' : ''),
     deltaColor:  delta > 0 ? 'var(--accent2)' : delta < 0 ? 'var(--accent3)' : 'var(--text-muted)',
   };
 }
