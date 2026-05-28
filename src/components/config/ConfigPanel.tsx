@@ -16,11 +16,12 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
   const [aplicaAF, setAplicaAF]   = useState(config.aplicaAF || false);
   const [valorAF, setValorAF]     = useState(String(config.valorAF || RMV * 0.1));
   const [fontSize, setFontSize]   = useState<Config['fontSize']>(config.fontSize || 'normal');
+  const [autoSync, setAutoSync]   = useState(config.autoSync || false);
 
   const vh = (() => {
     const s = parseFloat(sueldo);
     if (!s || s <= 0) return null;
-    return valorHora({ sueldo: s, aplicaAF, valorAF: parseFloat(valorAF) || RMV * 0.1, url, fontSize, jornadaSemanal: parseInt(jornada) || 48 });
+    return valorHora({ sueldo: s, aplicaAF, valorAF: parseFloat(valorAF) || RMV * 0.1, url, fontSize, jornadaSemanal: parseInt(jornada) || 48, autoSync: false });
   })();
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
       jornadaSemanal: parseInt(jornada) || 48,
       aplicaAF,
       valorAF:        parseFloat(valorAF) || RMV * 0.1,
+      autoSync:       autoSync && !!url.trim(),
     };
     setConfig(cfg);
     localStorage.setItem('hhee_setup_done', '1');
@@ -85,6 +87,15 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
             <label>Google Sheets Script URL</label>
             <input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/..." />
           </div>
+          {url && (
+            <div className="field">
+              <label>Sincronización automática</label>
+              <label className="radio-lbl" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={autoSync} onChange={e => setAutoSync(e.target.checked)} />
+                Sincronizar al guardar cada día
+              </label>
+            </div>
+          )}
           <div className="field">
             <label>Tamaño de fuente</label>
             <FontSizeSelector value={fontSize} onChange={setFontSize} />

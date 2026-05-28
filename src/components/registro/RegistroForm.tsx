@@ -4,6 +4,7 @@ import { calcHHEE } from '../../utils/calculations';
 import { esFeriado, esDomingo } from '../../utils/holidays';
 import { hoy } from '../../utils/dateUtils';
 import { valorHora } from '../../utils/workerUtils';
+import { syncToSheets } from '../../utils/sheetsUtils';
 import { SpecialDayNotice } from './SpecialDayNotice';
 import { PreviewBox } from './PreviewBox';
 import { Alert, useAlert } from '../ui/Alert';
@@ -99,6 +100,10 @@ export function RegistroForm() {
     setMotivo('');
     setSinComp(false);
     setPreview(null);
+
+    if (config.autoSync) {
+      syncToSheets(useAppStore.getState().registros, config).catch(() => {});
+    }
   };
 
   return (

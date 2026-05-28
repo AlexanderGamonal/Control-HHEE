@@ -19,6 +19,7 @@ export interface Config {
   jornadaSemanal: number;
   aplicaAF: boolean;
   valorAF: number;
+  autoSync: boolean;
 }
 
 export interface Periodo {

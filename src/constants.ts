@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: Config = {
   jornadaSemanal: 48,
   aplicaAF: false,
   valorAF: RMV * 0.1,
+  autoSync: false,
 };
 
 export const FERIADOS_FIJOS: Record<string, string> = {
@@ -35,13 +36,13 @@ export const APPS_SCRIPT = `function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("HHEE") || ss.insertSheet("HHEE");
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Período","Fecha","Entrada","Salida","Turno","Fin Jornada","Horas Ef.","Delta ±8h","Tipo","Motivo","Actualizado"]);
-      sheet.getRange(1,1,1,11).setFontWeight("bold").setBackground("#1c2030").setFontColor("#4d9de8");
+      sheet.appendRow(["Período","Fecha","Entrada","Salida","Turno","Fin Jornada","Horas Ef.","Delta ±8h","HHEE día","Monto S/","Tipo","Motivo","Actualizado"]);
+      sheet.getRange(1,1,1,13).setFontWeight("bold").setBackground("#1c2030").setFontColor("#4d9de8");
     }
     var payload = JSON.parse(e.postData.contents);
     if (sheet.getLastRow() > 1) sheet.deleteRows(2, sheet.getLastRow() - 1);
     payload.rows.forEach(function(r) {
-      sheet.appendRow([r.periodo, r.fecha, r.entrada, r.salida, r.turno, r.finJornada, r.horasEf, r.delta, r.tipo, r.motivo, new Date().toLocaleString("es-PE")]);
+      sheet.appendRow([r.periodo, r.fecha, r.entrada, r.salida, r.turno, r.finJornada, r.horasEf, r.delta, r.hheeDia, r.monto, r.tipo, r.motivo, new Date().toLocaleString("es-PE")]);
     });
     return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
   } catch(err) {

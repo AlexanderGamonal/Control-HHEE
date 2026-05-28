@@ -3,8 +3,11 @@ import { useAppStore } from '../../store';
 import { getTipoLabel } from '../../utils/workerUtils';
 import { getDeltaInfo, minAHoraStr } from '../../utils/timeUtils';
 import { getPeriodoDeFecha, labelPeriodo, hoy } from '../../utils/dateUtils';
+import { syncToSheets } from '../../utils/sheetsUtils';
 import { RegistroTable } from './RegistroTable';
 import { Alert, useAlert } from '../ui/Alert';
+import { JORNADA_MIN } from '../../constants';
+import { getSinComp } from '../../utils/workerUtils';
 
 interface HistorialPanelProps {
   registrosFiltrados: import('../../types').Registro[];
@@ -26,18 +29,25 @@ export function HistorialPanel({ registrosFiltrados }: HistorialPanelProps) {
     const data = getExportData();
     if (!data.length) { show('Sin datos para exportar en el período activo', 'error'); return; }
 
-    const headers = ['Período', 'Fecha', 'Entrada', 'Salida', 'Turno', 'Fin Jornada', 'Horas Ef.', 'Delta ±8h', 'Tipo', 'Motivo'];
+    const headers = ['Período','Fecha','Entrada','Salida','Turno','Fin Jornada','Horas Ef.','Delta ±8h','HHEE día','Monto S/','Tipo','Motivo'];
     const rows = data.map(r => {
-      const tipo  = getTipoLabel(r);
-      const di    = getDeltaInfo(r.trabajoEfectivoMin);
-      const per   = getPeriodoDeFecha(r.fecha);
+      const tipo    = getTipoLabel(r);
+      const di      = getDeltaInfo(r.trabajoEfectivoMin);
+      const per     = getPeriodoDeFecha(r.fecha);
+      const hheeMin = Math.max(0, r.trabajoEfectivoMin - JORNADA_MIN);
+      const monto   = getSinComp(r)
+        ? (r.trabajoEfectivoMin / 60) * r.vh * 2
+        : (hheeMin / 60) * r.vh * 1.25;
       return [
         `"${labelPeriodo(per.inicio, per.fin)}"`,
         r.fecha, r.entrada, r.salida,
         r.esTurnoNoche ? 'Noche' : 'Día',
         r.finJornadaStr,
         minAHoraStr(r.trabajoEfectivoMin ?? 0),
-        di.deltaExport, tipo, r.motivo || '',
+        di.deltaExport,
+        minAHoraStr(hheeMin),
+        monto.toFixed(2),
+        tipo, r.motivo || '',
       ].join(',');
     });
 
@@ -57,25 +67,7 @@ export function HistorialPanel({ registrosFiltrados }: HistorialPanelProps) {
 
     show('Enviando a Google Sheets...', 'success');
     try {
-      await fetch(config.url, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify({
-          rows: data.map(r => {
-            const tipo = getTipoLabel(r);
-            const di   = getDeltaInfo(r.trabajoEfectivoMin);
-            const per  = getPeriodoDeFecha(r.fecha);
-            return {
-              periodo: labelPeriodo(per.inicio, per.fin),
-              fecha: r.fecha, entrada: r.entrada, salida: r.salida,
-              turno: r.esTurnoNoche ? 'Noche' : 'Día',
-              finJornada: r.finJornadaStr,
-              horasEf: minAHoraStr(r.trabajoEfectivoMin ?? 0),
-              delta: di.deltaExport, tipo, motivo: r.motivo || '',
-            };
-          }),
-        }),
-      });
+      await syncToSheets(data, config);
       show('✓ Enviado a Google Sheets', 'success');
     } catch {
       show('Error de red. Verifica tu conexión a internet.', 'error');
