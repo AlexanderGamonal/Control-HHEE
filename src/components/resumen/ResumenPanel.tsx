@@ -15,33 +15,13 @@ interface ResumenPanelProps {
 export function ResumenPanel({ onPeriodo, onVerTodo, periodoLabel }: ResumenPanelProps) {
   const { registros, config, periodoActivo } = useAppStore();
 
-  const { totalHHEE, totalMonto, notaFeriados, acumulado } = useMemo(() => {
-    let totalHHEE = 0, totalMonto = 0, notaFeriados = '';
+  const { totalHHEE, totalMonto, acumulado } = useMemo(() => {
+    let totalHHEE = 0, totalMonto = 0;
 
     if (periodoActivo) {
-      const p  = calcHHEEPeriodo(registros, periodoActivo.inicio, periodoActivo.fin, config);
+      const p = calcHHEEPeriodo(registros, periodoActivo.inicio, periodoActivo.fin, config);
       totalHHEE  = p.hheeMin;
       totalMonto = p.montoTotal;
-
-      const totalDiasDeducidos = p.feriadosNoTrabajados + p.diasDescansoMedico + p.diasVacaciones;
-      if (totalDiasDeducidos > 0) {
-        const umbralBaseH = (p.umbralBaseMin / 60).toFixed(2);
-        const umbralAjH   = (p.obligatorioMin / 60).toFixed(1);
-        const partes: string[] = [];
-        if (p.feriadosNoTrabajados > 0) {
-          const n = p.feriadosNoTrabajados;
-          partes.push(`${n} feriado${n > 1 ? 's' : ''}`);
-        }
-        if (p.diasDescansoMedico > 0) {
-          const n = p.diasDescansoMedico;
-          partes.push(`${n} descanso${n > 1 ? 's' : ''} médico`);
-        }
-        if (p.diasVacaciones > 0) {
-          const n = p.diasVacaciones;
-          partes.push(`${n} día${n > 1 ? 's' : ''} de vacaciones`);
-        }
-        notaFeriados = `📅 Umbral comercial base: ${umbralBaseH}h. Se descontaron ${totalDiasDeducidos * 8}h por ${partes.join(', ')}, resultando en un umbral ajustado de ${umbralAjH}h (D.Leg. 713).`;
-      }
     } else {
       const periodos = new Map<string, { inicio: string; fin: string }>();
       registros.forEach(r => {
@@ -55,9 +35,11 @@ export function ResumenPanel({ onPeriodo, onVerTodo, periodoLabel }: ResumenPane
       });
     }
 
-    const acumulado = periodoActivo ? calcHHEEAcumulado(registros, periodoActivo.inicio, periodoActivo.fin, config) : null;
+    const acumulado = periodoActivo
+      ? calcHHEEAcumulado(registros, periodoActivo.inicio, periodoActivo.fin, config)
+      : null;
 
-    return { totalHHEE, totalMonto, notaFeriados, acumulado };
+    return { totalHHEE, totalMonto, acumulado };
   }, [registros, config, periodoActivo]);
 
   const registrosFiltrados = periodoActivo
@@ -72,15 +54,6 @@ export function ResumenPanel({ onPeriodo, onVerTodo, periodoLabel }: ResumenPane
     <>
       <PeriodoNav periodoLabel={periodoLabel} onPeriodo={onPeriodo} onVerTodo={onVerTodo} />
       <StatsGrid registros={registrosFiltrados} totalHHEE={totalHHEE} totalMonto={totalMonto} />
-      {notaFeriados && (
-        <div style={{
-          display: 'block', marginTop: 10, padding: '9px 13px', borderRadius: 2,
-          fontSize: 11, background: 'rgba(210,70,90,0.07)',
-          border: '1px solid rgba(210,70,90,0.25)', color: '#d2465a',
-        }}>
-          {notaFeriados}
-        </div>
-      )}
       {mostrarAcumulado && acumulado && <AcumuladoPanel ac={acumulado} />}
     </>
   );
