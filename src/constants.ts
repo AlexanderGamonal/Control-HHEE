@@ -7,12 +7,10 @@ export const REFRIGERIO_MIN      = 45;
 export const RMV            = 1025;
 
 export const DEFAULT_CONFIG: Config = {
-  sueldo: 0,
+  historialTarifas: [],
   url: '',
   fontSize: 'normal',
   jornadaSemanal: 48,
-  aplicaAF: false,
-  valorAF: RMV * 0.1,
   autoSync: false,
 };
 

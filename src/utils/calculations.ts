@@ -3,7 +3,7 @@ import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN } from '..
 import { tiempoAMin, minAHoraStr, minToTimeStr } from './timeUtils';
 import { esFeriado } from './holidays';
 import { diasEnPeriodo } from './dateUtils';
-import { getSinComp, valorHora } from './workerUtils';
+import { getSinComp, valorHora, getTarifaParaPeriodo } from './workerUtils';
 
 export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult {
   const entradaMin = tiempoAMin(entradaStr);
@@ -31,7 +31,8 @@ export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult 
 }
 
 export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: string, cfg: Config): PeriodoResult {
-  const vh   = cfg.sueldo ? valorHora(cfg) : 0;
+  const tarifa = getTarifaParaPeriodo(cfg.historialTarifas, fin);
+  const vh   = tarifa ? valorHora(tarifa) : 0;
   const jorn = (cfg.jornadaSemanal || 48) * 60;
   const N    = diasEnPeriodo(inicio, fin);
   const diaMin = Math.round(jorn / 6);
@@ -73,7 +74,8 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
 }
 
 export function calcHHEEAcumulado(registros: Registro[], inicio: string, fin: string, cfg: Config): AcumuladoResult {
-  const vh     = cfg.sueldo ? valorHora(cfg) : 0;
+  const tarifa = getTarifaParaPeriodo(cfg.historialTarifas, fin);
+  const vh     = tarifa ? valorHora(tarifa) : 0;
   const diaMin = Math.round((cfg.jornadaSemanal || 48) * 60 / 6);
 
   let regularMin = 0, feriadoMin = 0, countRegular = 0;

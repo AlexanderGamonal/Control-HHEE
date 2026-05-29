@@ -3,7 +3,7 @@ import { useAppStore } from '../../store';
 import { calcHHEE } from '../../utils/calculations';
 import { esFeriado, esDomingo } from '../../utils/holidays';
 import { hoy } from '../../utils/dateUtils';
-import { valorHora } from '../../utils/workerUtils';
+import { valorHora, getTarifaParaPeriodo } from '../../utils/workerUtils';
 import { syncToSheets } from '../../utils/sheetsUtils';
 import { SpecialDayNotice } from './SpecialDayNotice';
 import { PreviewBox } from './PreviewBox';
@@ -89,7 +89,7 @@ export function RegistroForm() {
       refrigerioMin:      r.refrigerioMin,
       finJornadaStr:      r.finJornadaStr,
       trabajoEfectivoMin: r.trabajoEfectivoMin,
-      vh: config.sueldo ? valorHora(config) : 0,
+      vh: (() => { const t = getTarifaParaPeriodo(config.historialTarifas, fecha); return t ? valorHora(t) : 0; })(),
       sinCompensacion,
       motivo,
     });

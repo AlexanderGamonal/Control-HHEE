@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store';
 import { valorHora } from '../../utils/workerUtils';
-import { RMV } from '../../constants';
-import type { Config } from '../../types';
+import { formatFecha, hoy } from '../../utils/dateUtils';
+import type { Config, TarifaSueldo } from '../../types';
 import { FontSizeSelector } from './FontSizeSelector';
 import { Alert, useAlert } from '../ui/Alert';
 
@@ -10,32 +10,64 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
   const { config, setConfig } = useAppStore();
   const { alertState, show, clear } = useAlert();
 
-  const [sueldo, setSueldo]       = useState(String(config.sueldo || ''));
-  const [url, setUrl]             = useState(config.url || '');
-  const [jornada, setJornada]     = useState(String(config.jornadaSemanal || 48));
-  const [aplicaAF, setAplicaAF]   = useState(config.aplicaAF || false);
-  const [valorAF, setValorAF]     = useState(String(config.valorAF || RMV * 0.1));
-  const [fontSize, setFontSize]   = useState<Config['fontSize']>(config.fontSize || 'normal');
-  const [autoSync, setAutoSync]   = useState(config.autoSync || false);
+  const [historialTarifas, setHistorialTarifas] = useState<TarifaSueldo[]>(
+    config.historialTarifas ?? []
+  );
+  const [url, setUrl]           = useState(config.url || '');
+  const [jornada, setJornada]   = useState(String(config.jornadaSemanal || 48));
+  const [fontSize, setFontSize] = useState<Config['fontSize']>(config.fontSize || 'normal');
+  const [autoSync, setAutoSync] = useState(config.autoSync || false);
 
-  const vh = (() => {
-    const s = parseFloat(sueldo);
+  // Formulario inline para nueva tarifa
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newSueldo,   setNewSueldo]   = useState('');
+  const [newAF,       setNewAF]       = useState('0');
+  const [newFecha,    setNewFecha]    = useState(hoy());
+
+  // Valor hora de la tarifa más reciente (para el preview)
+  const tarifasOrdenadas = [...historialTarifas].sort(
+    (a, b) => b.fechaVigenciaDesde.localeCompare(a.fechaVigenciaDesde)
+  );
+  const tarifaVigente = tarifasOrdenadas[0] ?? null;
+  const vh = tarifaVigente ? valorHora(tarifaVigente) : null;
+
+  // Preview de la nueva tarifa siendo ingresada
+  const vhNew = (() => {
+    const s = parseFloat(newSueldo);
     if (!s || s <= 0) return null;
-    return valorHora({ sueldo: s, aplicaAF, valorAF: parseFloat(valorAF) || RMV * 0.1, url, fontSize, jornadaSemanal: parseInt(jornada) || 48, autoSync: false });
+    return valorHora({ montoSueldo: s, montoAsignacionFamiliar: parseFloat(newAF) || 0, fechaVigenciaDesde: newFecha });
   })();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-fs', fontSize);
   }, [fontSize]);
 
+  const agregarTarifa = () => {
+    const monto = parseFloat(newSueldo);
+    if (!monto || monto <= 0) { show('Ingresa un monto de sueldo válido', 'error'); return; }
+    if (!newFecha) { show('Ingresa la fecha de vigencia', 'error'); return; }
+    const nueva: TarifaSueldo = {
+      montoSueldo: monto,
+      montoAsignacionFamiliar: parseFloat(newAF) || 0,
+      fechaVigenciaDesde: newFecha,
+    };
+    setHistorialTarifas(prev => [...prev, nueva]);
+    setShowNewForm(false);
+    setNewSueldo('');
+    setNewAF('0');
+    setNewFecha(hoy());
+  };
+
+  const eliminarTarifa = (fecha: string) => {
+    setHistorialTarifas(prev => prev.filter(t => t.fechaVigenciaDesde !== fecha));
+  };
+
   const guardar = () => {
     const cfg: Config = {
-      sueldo:         parseFloat(sueldo) || 0,
+      historialTarifas,
       url:            url.trim(),
       fontSize,
       jornadaSemanal: parseInt(jornada) || 48,
-      aplicaAF,
-      valorAF:        parseFloat(valorAF) || RMV * 0.1,
       autoSync:       autoSync && !!url.trim(),
     };
     setConfig(cfg);
@@ -51,38 +83,110 @@ export function ConfigPanel({ onClose }: { onClose: () => void }) {
       </div>
       <div className="section-body">
         <div className="form-grid">
-          <div className="field">
-            <label>Remuneración mensual (S/)</label>
-            <input type="number" value={sueldo} onChange={e => setSueldo(e.target.value)} placeholder="ej. 3500" min="0" step="0.01" />
-          </div>
-          <div className="field">
-            <label>Jornada semanal (h)</label>
-            <input type="number" value={jornada} onChange={e => setJornada(e.target.value)} min="1" max="48" step="1" />
-          </div>
-          <div className="field">
-            <label>Asignación Familiar</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-              <label className="radio-lbl">
-                <input type="checkbox" checked={aplicaAF} onChange={e => setAplicaAF(e.target.checked)} /> Aplica AF
-              </label>
-            </div>
-          </div>
-          {aplicaAF && (
-            <div className="field">
-              <label>Valor AF (S/)</label>
-              <input type="number" value={valorAF} onChange={e => setValorAF(e.target.value)} placeholder="102.50" min="0" step="0.01" />
-            </div>
-          )}
-          {vh !== null && (
-            <div className="field">
-              <label>Valor hora referencial</label>
-              <div className="vh-ref">
+
+          {/* ── Historial de Remuneraciones ── */}
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label>Historial de Remuneraciones</label>
+
+            {tarifasOrdenadas.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: '8px 0' }}>
+                Sin sueldo configurado — agrega el primero con el botón de abajo.
+              </div>
+            ) : (
+              <div className="table-wrap" style={{ marginTop: 8 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Vigente desde</th>
+                      <th>Sueldo (S/)</th>
+                      <th>AF (S/)</th>
+                      <th>Valor hora</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tarifasOrdenadas.map((t, i) => {
+                      const vhT = valorHora(t);
+                      return (
+                        <tr key={t.fechaVigenciaDesde} style={i === 0 ? { background: 'rgba(77,157,232,0.06)' } : {}}>
+                          <td>{formatFecha(t.fechaVigenciaDesde)}{i === 0 && <span className="tag tag-0" style={{ marginLeft: 6, fontSize: 9 }}>actual</span>}</td>
+                          <td>S/ {t.montoSueldo.toFixed(2)}</td>
+                          <td>{t.montoAsignacionFamiliar > 0 ? `S/ ${t.montoAsignacionFamiliar.toFixed(2)}` : '—'}</td>
+                          <td style={{ color: 'var(--accent)' }}>S/ {vhT.toFixed(4)}</td>
+                          <td>
+                            <button
+                              className="del-btn"
+                              onClick={() => eliminarTarifa(t.fechaVigenciaDesde)}
+                              title="Eliminar esta tarifa"
+                            >✕</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Formulario inline para nueva tarifa */}
+            {showNewForm ? (
+              <div style={{ marginTop: 12, padding: '14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 2 }}>
+                <div style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Nueva tarifa
+                </div>
+                <div className="form-grid">
+                  <div className="field">
+                    <label>Sueldo básico (S/)</label>
+                    <input type="number" value={newSueldo} onChange={e => setNewSueldo(e.target.value)}
+                      placeholder="ej. 4511" min="0" step="0.01" autoFocus />
+                  </div>
+                  <div className="field">
+                    <label>Asignación Familiar (S/) — 0 si no aplica</label>
+                    <input type="number" value={newAF} onChange={e => setNewAF(e.target.value)}
+                      placeholder="ej. 113" min="0" step="0.01" />
+                  </div>
+                  <div className="field">
+                    <label>Vigente desde</label>
+                    <input type="date" value={newFecha} onChange={e => setNewFecha(e.target.value)} />
+                  </div>
+                </div>
+                {vhNew !== null && (
+                  <div className="vh-ref" style={{ marginTop: 10 }}>
+                    <div className="vh-row"><span className="vh-lbl">Hora normal</span><span className="vh-val">S/ {vhNew.toFixed(4)}</span></div>
+                    <div className="vh-row"><span className="vh-lbl">HHEE netas (×1.25)</span><span className="vh-val accent">S/ {(vhNew * 1.25).toFixed(4)}</span></div>
+                    <div className="vh-row"><span className="vh-lbl">Feriado/Desc. (×2)</span><span className="vh-val accent2">S/ {(vhNew * 2).toFixed(4)}</span></div>
+                  </div>
+                )}
+                <div className="btn-row" style={{ marginTop: 12 }}>
+                  <button className="btn btn-primary" onClick={agregarTarifa}>Agregar</button>
+                  <button className="btn btn-outline" onClick={() => setShowNewForm(false)}>Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="btn btn-outline"
+                style={{ marginTop: 10, fontSize: 12 }}
+                onClick={() => setShowNewForm(true)}
+              >
+                ＋ Registrar Nuevo Aumento
+              </button>
+            )}
+
+            {/* Preview valor hora vigente */}
+            {vh !== null && !showNewForm && (
+              <div className="vh-ref" style={{ marginTop: 12 }}>
                 <div className="vh-row"><span className="vh-lbl">Hora normal</span><span className="vh-val">S/ {vh.toFixed(4)}</span></div>
                 <div className="vh-row"><span className="vh-lbl">HHEE netas (×1.25)</span><span className="vh-val accent">S/ {(vh * 1.25).toFixed(4)}</span></div>
                 <div className="vh-row"><span className="vh-lbl">Feriado/Desc. (×2)</span><span className="vh-val accent2">S/ {(vh * 2).toFixed(4)}</span></div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* ── Otros ajustes ── */}
+          <div className="field">
+            <label>Jornada semanal (h)</label>
+            <input type="number" value={jornada} onChange={e => setJornada(e.target.value)} min="1" max="48" step="1" />
+          </div>
           <div className="field">
             <label>Google Sheets Script URL</label>
             <input type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/..." />

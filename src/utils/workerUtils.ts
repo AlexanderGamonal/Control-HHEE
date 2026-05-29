@@ -1,13 +1,15 @@
-import type { Config, Registro } from '../types';
-import { RMV } from '../constants';
+import type { Registro, TarifaSueldo } from '../types';
 import { esDomingo, esFeriado } from './holidays';
 
-export function remuneracionComputable(cfg: Config): number {
-  return (cfg.sueldo || 0) + (cfg.aplicaAF ? (cfg.valorAF || RMV * 0.1) : 0);
+export function getTarifaParaPeriodo(historial: TarifaSueldo[], fechaFin: string): TarifaSueldo | null {
+  const aplicables = historial
+    .filter(t => t.fechaVigenciaDesde <= fechaFin)
+    .sort((a, b) => b.fechaVigenciaDesde.localeCompare(a.fechaVigenciaDesde));
+  return aplicables[0] ?? null;
 }
 
-export function valorHora(cfg: Config): number {
-  return remuneracionComputable(cfg) / 30 / 8;
+export function valorHora(tarifa: TarifaSueldo): number {
+  return (tarifa.montoSueldo + tarifa.montoAsignacionFamiliar) / 30 / 8;
 }
 
 export function getSinComp(r: Registro): boolean {

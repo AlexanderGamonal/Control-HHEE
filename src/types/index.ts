@@ -12,13 +12,17 @@ export interface Registro {
   motivo?: string;
 }
 
+export interface TarifaSueldo {
+  montoSueldo: number;
+  montoAsignacionFamiliar: number; // 0 = no aplica AF
+  fechaVigenciaDesde: string;      // YYYY-MM-DD
+}
+
 export interface Config {
-  sueldo: number;
+  historialTarifas: TarifaSueldo[];
   url: string;
   fontSize: 'normal' | 'large' | 'xlarge';
   jornadaSemanal: number;
-  aplicaAF: boolean;
-  valorAF: number;
   autoSync: boolean;
 }
 
