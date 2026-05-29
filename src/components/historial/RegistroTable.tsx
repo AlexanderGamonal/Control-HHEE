@@ -58,7 +58,40 @@ export function RegistroTable({ registros }: RegistroTableProps) {
                 <td></td>
               </tr>,
               ...dias.map(r => {
-                const dayName  = DIAS_ES[new Date(r.fecha + 'T00:00:00').getDay()];
+                const dayName = DIAS_ES[new Date(r.fecha + 'T00:00:00').getDay()];
+                const esMedico = r.tipoRegistro === 'descansoMedico';
+                const esVac    = r.tipoRegistro === 'vacaciones';
+                const esEspecial = esMedico || esVac;
+
+                if (esEspecial) {
+                  return (
+                    <tr key={r.fecha} style={{ opacity: 0.85 }}>
+                      <td>
+                        {dayName} {formatFecha(r.fecha)}
+                        <span
+                          className="tag"
+                          style={{ marginLeft: 4, background: esMedico ? 'rgba(126,184,247,0.18)' : 'rgba(77,210,130,0.18)', color: esMedico ? 'var(--accent4)' : '#3dbb6b', fontSize: 10 }}
+                        >
+                          {esMedico ? '🏥 Méd.' : '🌴 Vac.'}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td>
+                        <span className="tag" style={{ background: esMedico ? 'rgba(126,184,247,0.18)' : 'rgba(77,210,130,0.18)', color: esMedico ? 'var(--accent4)' : '#3dbb6b' }}>
+                          {esMedico ? '🏥 Médico' : '🌴 Vacaciones'}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</td>
+                      <td>
+                        <button className="del-btn" onClick={() => eliminar(r.fecha)}>✕</button>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 const sinComp  = getSinComp(r);
                 const esFer    = esFeriado(r.fecha);
                 const esDom    = esDomingo(r.fecha);

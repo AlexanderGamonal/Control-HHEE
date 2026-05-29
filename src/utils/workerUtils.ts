@@ -13,11 +13,14 @@ export function valorHora(tarifa: TarifaSueldo): number {
 }
 
 export function getSinComp(r: Registro): boolean {
+  if (r.tipoRegistro === 'descansoMedico' || r.tipoRegistro === 'vacaciones') return false;
   return r.sinCompensacion === true ||
     (r.sinCompensacion === undefined && (esDomingo(r.fecha) || esFeriado(r.fecha)));
 }
 
 export function getTipoLabel(r: Registro): string {
+  if (r.tipoRegistro === 'descansoMedico') return 'Méd.';
+  if (r.tipoRegistro === 'vacaciones') return 'Vac.';
   const sinComp = getSinComp(r);
   if (sinComp && esFeriado(r.fecha)) return 'Feriado\xd72';
   if (sinComp && esDomingo(r.fecha)) return 'Dom\xd72';
