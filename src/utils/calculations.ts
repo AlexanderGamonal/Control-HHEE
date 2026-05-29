@@ -2,7 +2,6 @@ import type { CalcHHEEResult, PeriodoResult, AcumuladoResult, Registro, Config }
 import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN } from '../constants';
 import { tiempoAMin, minAHoraStr, minToTimeStr } from './timeUtils';
 import { esFeriado } from './holidays';
-import { diasEnPeriodo } from './dateUtils';
 import { getSinComp, valorHora, getTarifaParaPeriodo } from './workerUtils';
 
 export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult {
@@ -34,12 +33,11 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
   const tarifa = getTarifaParaPeriodo(cfg.historialTarifas, fin);
   const vh   = tarifa ? valorHora(tarifa) : 0;
   const jorn = (cfg.jornadaSemanal || 48) * 60;
-  const N    = diasEnPeriodo(inicio, fin);
   const diaMin = Math.round(jorn / 6);
 
-  const fechasRegistradas = new Set(
-    registros.filter(r => r.fecha >= inicio && r.fecha <= fin).map(r => r.fecha)
-  );
+  const registrosPeriodo = registros.filter(r => r.fecha >= inicio && r.fecha <= fin);
+  const fechasRegistradas = new Set(registrosPeriodo.map(r => r.fecha));
+
   let feriadosNoTrabajados = 0;
   const d    = new Date(inicio + 'T00:00:00');
   const dFin = new Date(fin    + 'T00:00:00');
@@ -49,13 +47,16 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
     d.setDate(d.getDate() + 1);
   }
 
-  const semanasCompletas = Math.floor(N / 7);
-  const diasRestantes    = N % 7;
-  const diasLaborables   = semanasCompletas * 6 + diasRestantes;
-  const obligatorioMin   = Math.max(0, (diasLaborables - feriadosNoTrabajados) * diaMin);
+  const diasDescansoMedico = registrosPeriodo.filter(r => r.tipoRegistro === 'descansoMedico').length;
+  const diasVacaciones     = registrosPeriodo.filter(r => r.tipoRegistro === 'vacaciones').length;
+
+  const umbralBaseMin  = (30 / 7) * (cfg.jornadaSemanal || 48) * 60;
+  const obligatorioMin = Math.max(0, umbralBaseMin - (feriadosNoTrabajados + diasDescansoMedico + diasVacaciones) * diaMin);
 
   let regularMin = 0, feriadoMin = 0;
-  registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
+  registrosPeriodo.forEach(r => {
+    const tipo = r.tipoRegistro ?? 'trabajo';
+    if (tipo === 'descansoMedico' || tipo === 'vacaciones') return;
     const trabajo = r.trabajoEfectivoMin ?? 0;
     if (getSinComp(r)) feriadoMin += trabajo;
     else               regularMin += trabajo;
@@ -68,6 +69,7 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
 
   return {
     obligatorioMin, regularMin, feriadoMin, saldoMin, feriadosNoTrabajados,
+    diasDescansoMedico, diasVacaciones, umbralBaseMin,
     hheeMin, hheeStr: minAHoraStr(hheeMin),
     montoHHEE, montoFeriado, montoTotal: montoHHEE + montoFeriado,
   };
@@ -80,6 +82,8 @@ export function calcHHEEAcumulado(registros: Registro[], inicio: string, fin: st
 
   let regularMin = 0, feriadoMin = 0, countRegular = 0;
   registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
+    const tipo = r.tipoRegistro ?? 'trabajo';
+    if (tipo === 'descansoMedico' || tipo === 'vacaciones') return;
     const trabajo = r.trabajoEfectivoMin ?? 0;
     if (getSinComp(r)) { feriadoMin += trabajo; }
     else               { regularMin += trabajo; countRegular++; }

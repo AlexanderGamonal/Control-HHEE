@@ -22,10 +22,25 @@ export function ResumenPanel({ onPeriodo, onVerTodo, periodoLabel }: ResumenPane
       const p  = calcHHEEPeriodo(registros, periodoActivo.inicio, periodoActivo.fin, config);
       totalHHEE  = p.hheeMin;
       totalMonto = p.montoTotal;
-      if (p.feriadosNoTrabajados > 0) {
-        const n = p.feriadosNoTrabajados;
-        const umbralH = (p.obligatorioMin / 60).toFixed(0);
-        notaFeriados = `📅 ${n} feriado${n > 1 ? 's' : ''} no trabajado${n > 1 ? 's' : ''} en el período — umbral ajustado a ${umbralH}h (descanso remunerado, D.Leg. 713)`;
+
+      const totalDiasDeducidos = p.feriadosNoTrabajados + p.diasDescansoMedico + p.diasVacaciones;
+      if (totalDiasDeducidos > 0) {
+        const umbralBaseH = (p.umbralBaseMin / 60).toFixed(2);
+        const umbralAjH   = (p.obligatorioMin / 60).toFixed(1);
+        const partes: string[] = [];
+        if (p.feriadosNoTrabajados > 0) {
+          const n = p.feriadosNoTrabajados;
+          partes.push(`${n} feriado${n > 1 ? 's' : ''}`);
+        }
+        if (p.diasDescansoMedico > 0) {
+          const n = p.diasDescansoMedico;
+          partes.push(`${n} descanso${n > 1 ? 's' : ''} médico`);
+        }
+        if (p.diasVacaciones > 0) {
+          const n = p.diasVacaciones;
+          partes.push(`${n} día${n > 1 ? 's' : ''} de vacaciones`);
+        }
+        notaFeriados = `📅 Umbral comercial base: ${umbralBaseH}h. Se descontaron ${totalDiasDeducidos * 8}h por ${partes.join(', ')}, resultando en un umbral ajustado de ${umbralAjH}h (D.Leg. 713).`;
       }
     } else {
       const periodos = new Map<string, { inicio: string; fin: string }>();

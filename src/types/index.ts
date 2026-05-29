@@ -10,6 +10,7 @@ export interface Registro {
   vh: number;
   sinCompensacion?: boolean;
   motivo?: string;
+  tipoRegistro?: 'trabajo' | 'descansoMedico' | 'vacaciones';
 }
 
 export interface TarifaSueldo {
@@ -49,6 +50,9 @@ export interface PeriodoResult {
   feriadoMin: number;
   saldoMin: number;
   feriadosNoTrabajados: number;
+  diasDescansoMedico: number;
+  diasVacaciones: number;
+  umbralBaseMin: number;
   hheeMin: number;
   hheeStr: string;
   montoHHEE: number;
