@@ -63,7 +63,7 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
   });
 
   const saldoMin   = regularMin - obligatorioMin;
-  const hheeMin    = Math.max(0, saldoMin);
+  const hheeMin    = Math.max(0, Math.round(saldoMin));
   const montoHHEE  = hheeMin    / 60 * vh * 1.25;
   const montoFeriado = feriadoMin / 60 * vh * 2;
 
