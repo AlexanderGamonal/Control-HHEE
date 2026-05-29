@@ -45,14 +45,9 @@ export interface CalcHHEEResult {
 }
 
 export interface PeriodoResult {
-  obligatorioMin: number;
   regularMin: number;
   feriadoMin: number;
   saldoMin: number;
-  feriadosNoTrabajados: number;
-  diasDescansoMedico: number;
-  diasVacaciones: number;
-  umbralBaseMin: number;
   hheeMin: number;
   hheeStr: string;
   montoHHEE: number;

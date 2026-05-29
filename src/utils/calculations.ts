@@ -1,7 +1,6 @@
 import type { CalcHHEEResult, PeriodoResult, AcumuladoResult, Registro, Config } from '../types';
 import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN } from '../constants';
 import { tiempoAMin, minAHoraStr, minToTimeStr } from './timeUtils';
-import { esFeriado } from './holidays';
 import { getSinComp, valorHora, getTarifaParaPeriodo } from './workerUtils';
 
 export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult {
@@ -31,45 +30,26 @@ export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult 
 
 export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: string, cfg: Config): PeriodoResult {
   const tarifa = getTarifaParaPeriodo(cfg.historialTarifas, fin);
-  const vh   = tarifa ? valorHora(tarifa) : 0;
-  const jorn = (cfg.jornadaSemanal || 48) * 60;
-  const diaMin = Math.round(jorn / 6);
+  const vh     = tarifa ? valorHora(tarifa) : 0;
+  const diaMin = Math.round((cfg.jornadaSemanal || 48) * 60 / 6);
 
-  const registrosPeriodo = registros.filter(r => r.fecha >= inicio && r.fecha <= fin);
-  const fechasRegistradas = new Set(registrosPeriodo.map(r => r.fecha));
-
-  let feriadosNoTrabajados = 0;
-  const d    = new Date(inicio + 'T00:00:00');
-  const dFin = new Date(fin    + 'T00:00:00');
-  while (d <= dFin) {
-    const f = d.toISOString().slice(0, 10);
-    if (esFeriado(f) && !fechasRegistradas.has(f)) feriadosNoTrabajados++;
-    d.setDate(d.getDate() + 1);
-  }
-
-  const diasDescansoMedico = registrosPeriodo.filter(r => r.tipoRegistro === 'descansoMedico').length;
-  const diasVacaciones     = registrosPeriodo.filter(r => r.tipoRegistro === 'vacaciones').length;
-
-  const umbralBaseMin  = (30 / 7) * (cfg.jornadaSemanal || 48) * 60;
-  const obligatorioMin = Math.max(0, umbralBaseMin - (feriadosNoTrabajados + diasDescansoMedico + diasVacaciones) * diaMin);
-
-  let regularMin = 0, feriadoMin = 0;
-  registrosPeriodo.forEach(r => {
+  let regularMin = 0, feriadoMin = 0, countRegular = 0;
+  registros.filter(r => r.fecha >= inicio && r.fecha <= fin).forEach(r => {
     const tipo = r.tipoRegistro ?? 'trabajo';
     if (tipo === 'descansoMedico' || tipo === 'vacaciones') return;
     const trabajo = r.trabajoEfectivoMin ?? 0;
     if (getSinComp(r)) feriadoMin += trabajo;
-    else               regularMin += trabajo;
+    else               { regularMin += trabajo; countRegular++; }
   });
 
-  const saldoMin   = regularMin - obligatorioMin;
-  const hheeMin    = Math.max(0, Math.round(saldoMin));
-  const montoHHEE  = hheeMin    / 60 * vh * 1.25;
+  // Net delta: sum of (trabajoEfectivo - 8h) per registered work day
+  const saldoMin    = regularMin - countRegular * diaMin;
+  const hheeMin     = Math.max(0, Math.round(saldoMin));
+  const montoHHEE   = hheeMin / 60 * vh * 1.25;
   const montoFeriado = feriadoMin / 60 * vh * 2;
 
   return {
-    obligatorioMin, regularMin, feriadoMin, saldoMin, feriadosNoTrabajados,
-    diasDescansoMedico, diasVacaciones, umbralBaseMin,
+    regularMin, feriadoMin, saldoMin,
     hheeMin, hheeStr: minAHoraStr(hheeMin),
     montoHHEE, montoFeriado, montoTotal: montoHHEE + montoFeriado,
   };
