@@ -1,15 +1,22 @@
 import type { CalcHHEEResult, PeriodoResult, AcumuladoResult, Registro, Config } from '../types';
-import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN } from '../constants';
+import { HORA_NOCHE, HORA_SIN_REFRIGERIO, JORNADA_MIN, REFRIGERIO_MIN, HHEE_LIMITE_MIN } from '../constants';
 import { tiempoAMin, minAHoraStr, minToTimeStr } from './timeUtils';
 import { getSinComp, valorHora, getTarifaParaPeriodo } from './workerUtils';
 
-export function calcHHEE(entradaStr: string, salidaStr: string): CalcHHEEResult {
+function calcMontoHHEE(hheeMin: number, vh: number): number {
+  const primero   = Math.min(hheeMin, HHEE_LIMITE_MIN);
+  const excedente = Math.max(0, hheeMin - HHEE_LIMITE_MIN);
+  return primero / 60 * vh * 1.25 + excedente / 60 * vh * 1.35;
+}
+
+export function calcHHEE(entradaStr: string, salidaStr: string, sinRefrigerio = false): CalcHHEEResult {
   const entradaMin = tiempoAMin(entradaStr);
   let   salidaMin  = tiempoAMin(salidaStr);
   if (salidaMin <= entradaMin) salidaMin += 1440;
 
   const esTurnoNoche = entradaMin >= HORA_NOCHE;
-  const refrigerio   = (!esTurnoNoche && entradaMin <= HORA_SIN_REFRIGERIO) ? REFRIGERIO_MIN : 0;
+  const refrigerio   = sinRefrigerio ? 0
+    : (!esTurnoNoche && entradaMin <= HORA_SIN_REFRIGERIO) ? REFRIGERIO_MIN : 0;
   const totalLocalMin   = salidaMin - entradaMin;
   const trabajoEfectivo = totalLocalMin - refrigerio;
   const finJornadaMin   = entradaMin + JORNADA_MIN + refrigerio;
@@ -42,10 +49,9 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
     else               { regularMin += trabajo; countRegular++; }
   });
 
-  // Net delta: sum of (trabajoEfectivo - 8h) per registered work day
   const saldoMin    = regularMin - countRegular * diaMin;
   const hheeMin     = Math.max(0, Math.round(saldoMin));
-  const montoHHEE   = hheeMin / 60 * vh * 1.25;
+  const montoHHEE   = calcMontoHHEE(hheeMin, vh);
   const montoFeriado = feriadoMin / 60 * vh * 2;
 
   return {
@@ -70,7 +76,7 @@ export function calcHHEEAcumulado(registros: Registro[], inicio: string, fin: st
   });
 
   const hheeAlDia      = Math.max(0, regularMin - countRegular * diaMin);
-  const montoHHEEAlDia = hheeAlDia  / 60 * vh * 1.25;
+  const montoHHEEAlDia = calcMontoHHEE(hheeAlDia, vh);
   const montoFerAlDia  = feriadoMin / 60 * vh * 2;
   return {
     hheeAlDia, montoHHEEAlDia, montoFerAlDia,
