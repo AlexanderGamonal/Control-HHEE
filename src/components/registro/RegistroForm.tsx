@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '../../store';
 import { calcHHEE } from '../../utils/calculations';
 import { esFeriado, esDomingo } from '../../utils/holidays';
@@ -32,42 +32,48 @@ function completeTime(raw: string): string {
 
 type TipoRegistro = 'trabajo' | 'descansoMedico' | 'vacaciones';
 
+function runCalcHHEE(ent: string, sal: string, sinRefrigerio: boolean): CalcHHEEResult | null {
+  if (ent.length !== 5 || sal.length !== 5) return null;
+  try { return calcHHEE(ent, sal, sinRefrigerio); } catch { return null; }
+}
+
 export function RegistroForm() {
   const { config, saveRegistro } = useAppStore();
   const { alertState, show, clear } = useAlert();
 
-  const [fecha,         setFecha]         = useState(hoy());
-  const [entrada,       setEntrada]       = useState('');
-  const [salida,        setSalida]        = useState('');
-  const [motivo,        setMotivo]        = useState('');
-  const [sinComp,       setSinComp]       = useState(false);
-  const [preview,       setPreview]       = useState<CalcHHEEResult | null>(null);
-  const [tipoRegistro,  setTipoRegistro]  = useState<TipoRegistro>('trabajo');
+  const [fecha,        setFecha]        = useState(hoy());
+  const [entrada,      setEntrada]      = useState('');
+  const [salida,       setSalida]       = useState('');
+  const [motivo,       setMotivo]       = useState('');
+  const [sinComp,      setSinComp]      = useState(false);
+  const [preview,      setPreview]      = useState<CalcHHEEResult | null>(null);
+  const [tipoRegistro, setTipoRegistro] = useState<TipoRegistro>('trabajo');
+  const [ecoRomeo,     setEcoRomeo]     = useState(false);
 
-  const calcPreview = useCallback((ent: string, sal: string) => {
-    if (ent.length === 5 && sal.length === 5) {
-      try { setPreview(calcHHEE(ent, sal)); } catch { setPreview(null); }
-    } else {
-      setPreview(null);
-    }
-  }, []);
+  const updatePreview = (ent: string, sal: string, er: boolean) => {
+    setPreview(runCalcHHEE(ent, sal, er));
+  };
 
   const handleEntrada = (raw: string) => {
     const v = formatTimeValue(raw);
     setEntrada(v);
-    calcPreview(v, salida);
+    updatePreview(v, salida, ecoRomeo);
   };
 
   const handleSalida = (raw: string) => {
     const v = formatTimeValue(raw);
     setSalida(v);
-    calcPreview(entrada, v);
+    updatePreview(entrada, v, ecoRomeo);
   };
 
   const blurTime = (val: string, setter: (v: string) => void, other: string, isEntrada: boolean) => {
     const completed = completeTime(val);
     setter(completed);
-    calcPreview(isEntrada ? completed : other, isEntrada ? other : completed);
+    updatePreview(
+      isEntrada ? completed : other,
+      isEntrada ? other : completed,
+      ecoRomeo,
+    );
   };
 
   const handleFechaChange = (f: string) => {
@@ -75,11 +81,14 @@ export function RegistroForm() {
     setSinComp(false);
   };
 
+  const handleEcoRomeo = (checked: boolean) => {
+    setEcoRomeo(checked);
+    updatePreview(entrada, salida, checked);
+  };
+
   const handleTipoChange = (tipo: TipoRegistro) => {
     setTipoRegistro(tipo);
-    if (tipo !== 'trabajo') {
-      setPreview(null);
-    }
+    if (tipo !== 'trabajo') setPreview(null);
   };
 
   const registrar = () => {
@@ -102,11 +111,8 @@ export function RegistroForm() {
         tipoRegistro,
       };
     } else {
-      if (!entrada || !salida) {
-        show('Completa fecha, entrada y salida', 'error');
-        return;
-      }
-      const r = calcHHEE(entrada, salida);
+      if (!entrada || !salida) { show('Completa fecha, entrada y salida', 'error'); return; }
+      const r = calcHHEE(entrada, salida, ecoRomeo);
       const esFeriadoHoy = esFeriado(fecha);
       const esDomingoHoy = esDomingo(fecha);
       const sinCompensacion = esFeriadoHoy ? true : esDomingoHoy ? sinComp : false;
@@ -121,6 +127,7 @@ export function RegistroForm() {
         sinCompensacion,
         motivo,
         tipoRegistro: 'trabajo',
+        ecoRomeo: ecoRomeo || undefined,
       };
     }
 
@@ -130,6 +137,7 @@ export function RegistroForm() {
     setSalida('');
     setMotivo('');
     setSinComp(false);
+    setEcoRomeo(false);
     setPreview(null);
     setTipoRegistro('trabajo');
 
@@ -147,9 +155,7 @@ export function RegistroForm() {
             {(['trabajo', 'descansoMedico', 'vacaciones'] as TipoRegistro[]).map(tipo => (
               <label key={tipo} className="radio-lbl" style={{ cursor: 'pointer' }}>
                 <input
-                  type="radio"
-                  name="tipoRegistro"
-                  value={tipo}
+                  type="radio" name="tipoRegistro" value={tipo}
                   checked={tipoRegistro === tipo}
                   onChange={() => handleTipoChange(tipo)}
                 />
@@ -189,12 +195,32 @@ export function RegistroForm() {
 
         <div className="field">
           <label>Motivo (opcional)</label>
-          <input type="text" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder={tipoRegistro === 'trabajo' ? 'ej. Cierre de mes' : 'ej. Certificado médico N°123'} />
+          <input
+            type="text" value={motivo}
+            onChange={e => setMotivo(e.target.value)}
+            placeholder={tipoRegistro === 'trabajo' ? 'ej. Cierre de mes' : 'ej. Certificado médico N°123'}
+          />
         </div>
       </div>
 
       {tipoRegistro === 'trabajo' && (
         <SpecialDayNotice fecha={fecha} sinCompensacion={sinComp} onSinCompensacionChange={setSinComp} />
+      )}
+
+      {tipoRegistro === 'trabajo' && (
+        <div style={{ margin: '8px 0 4px' }}>
+          <label className="radio-lbl" style={{ cursor: 'pointer', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={ecoRomeo}
+              onChange={e => handleEcoRomeo(e.target.checked)}
+            />
+            <span>
+              <strong>Eco Romeo</strong>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> — sin descuento de refrigerio (no se almorzó)</span>
+            </span>
+          </label>
+        </div>
       )}
 
       {tipoRegistro === 'trabajo' && preview && <PreviewBox result={preview} />}

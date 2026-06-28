@@ -11,6 +11,7 @@ export interface Registro {
   sinCompensacion?: boolean;
   motivo?: string;
   tipoRegistro?: 'trabajo' | 'descansoMedico' | 'vacaciones';
+  ecoRomeo?: boolean;
 }
 
 export interface TarifaSueldo {

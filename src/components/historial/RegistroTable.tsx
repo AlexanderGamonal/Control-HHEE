@@ -112,6 +112,7 @@ export function RegistroTable({ registros }: RegistroTableProps) {
                   <tr key={r.fecha}>
                     <td>
                       {dayName} {formatFecha(r.fecha)}
+                      {r.ecoRomeo && <span className="tag" style={{ marginLeft: 4, background: 'rgba(255,160,60,0.15)', color: '#d4880a', fontSize: 10 }}>ER</span>}
                       {sinComp && <span className={`tag ${badgeClass}`} style={{ marginLeft: 4 }}>{badge}</span>}
                       {showComp && <span className="tag tag-0" style={{ marginLeft: 4, fontSize: 10 }}>Comp.</span>}
                     </td>
