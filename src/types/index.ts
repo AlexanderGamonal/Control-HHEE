@@ -51,6 +51,9 @@ export interface PeriodoResult {
   saldoMin: number;
   hheeMin: number;
   hheeStr: string;
+  hheeTramo2Min: number;
+  montoTramo1: number;
+  montoTramo2: number;
   montoHHEE: number;
   montoFeriado: number;
   montoTotal: number;

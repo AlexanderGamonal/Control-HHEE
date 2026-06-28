@@ -49,14 +49,18 @@ export function calcHHEEPeriodo(registros: Registro[], inicio: string, fin: stri
     else               { regularMin += trabajo; countRegular++; }
   });
 
-  const saldoMin    = regularMin - countRegular * diaMin;
-  const hheeMin     = Math.max(0, Math.round(saldoMin));
-  const montoHHEE   = calcMontoHHEE(hheeMin, vh);
+  const saldoMin     = regularMin - countRegular * diaMin;
+  const hheeMin      = Math.max(0, Math.round(saldoMin));
+  const hheeTramo2Min = Math.max(0, hheeMin - HHEE_LIMITE_MIN);
+  const montoTramo1  = Math.min(hheeMin, HHEE_LIMITE_MIN) / 60 * vh * 1.25;
+  const montoTramo2  = hheeTramo2Min / 60 * vh * 1.35;
+  const montoHHEE    = montoTramo1 + montoTramo2;
   const montoFeriado = feriadoMin / 60 * vh * 2;
 
   return {
     regularMin, feriadoMin, saldoMin,
     hheeMin, hheeStr: minAHoraStr(hheeMin),
+    hheeTramo2Min, montoTramo1, montoTramo2,
     montoHHEE, montoFeriado, montoTotal: montoHHEE + montoFeriado,
   };
 }
