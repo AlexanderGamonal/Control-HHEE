@@ -10,8 +10,8 @@ export function Header({ onToggleConfig, configOpen }: HeaderProps) {
         <h1>Control de <span>HHEE</span></h1>
         <div className="header-meta">
           <span>Cálculo por período 16–15</span>
-          <span>25% HHEE netas · ×2 feriados/domingos</span>
-          <span>Refrigerio 45min (turno día)</span>
+          <span>HHEE ≤52h ×1.25 · &gt;52h ×1.35 · Feriados/desc. ×2</span>
+          <span>Refrigerio 45min (turno día) · Eco Romeo: sin descuento</span>
         </div>
       </div>
       <button className="btn-settings" onClick={onToggleConfig}>
